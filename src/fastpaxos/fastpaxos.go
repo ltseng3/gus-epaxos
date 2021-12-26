@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"genericsmr"
 	"genericsmrproto"
+	"math"
+
 	//"io"
 	"log"
 	"fastpaxosproto"
@@ -272,8 +274,10 @@ func (r *Replica) run() {
 				r.bookkeeping[ackWrite.Seq].needSecondPhase = true
 			}
 
+			fastQuorumSize := int(math.Floor(3*float64(r.N)/4))
+
 			//fmt.Println("GUS: bookKeeping Seq %d with %d ack-write", ackWrite.Seq, r.bookkeeping[ackWrite.Seq].acks)
-			if (r.bookkeeping[ackWrite.Seq].ackWrites >= (r.N-1)/2) && !r.bookkeeping[ackWrite.Seq].doneFirstPhase && !r.bookkeeping[ackWrite.Seq].complete {
+			if (r.bookkeeping[ackWrite.Seq].ackWrites >= fastQuorumSize) && !r.bookkeeping[ackWrite.Seq].doneFirstPhase && !r.bookkeeping[ackWrite.Seq].complete {
 				r.bookkeeping[ackWrite.Seq].doneFirstPhase = true
 				if !r.bookkeeping[ackWrite.Seq].needSecondPhase {// All staleTag = FALSE
 
@@ -364,8 +368,8 @@ func (r *Replica) run() {
 				r.storage[key][r.currentVersion[key]] = ackRead.Value
 				r.bookkeeping[ackRead.Seq].needSecondPhase = true
 			}
-
-			if (r.bookkeeping[ackRead.Seq].ackReads >= (r.N-1)/2) && r.bookkeeping[ackRead.Seq].waitForAckRead {
+			fastQuorumSize := int(math.Floor(3*float64(r.N)/4))
+			if (r.bookkeeping[ackRead.Seq].ackReads >= fastQuorumSize) && r.bookkeeping[ackRead.Seq].waitForAckRead {
 				if r.bookkeeping[ackRead.Seq].needSecondPhase {
 					r.bcastCommitWrite(ackRead.Seq, ackRead.ReaderID, r.bookkeeping[ackRead.Seq].maxVersion)
 					r.bookkeeping[ackRead.Seq].waitForAckCommit = true

@@ -63,9 +63,10 @@ type AckWrite struct {
 }
 
 type CommitWrite struct {
-	Seq 		int32
-	WriterID	int32
-	CurrentTime	int32
+	Seq         int32
+	Key         state.Key
+	WriterID    int32
+	CurrentTime int32
 }
 
 type AckCommit struct {
@@ -75,6 +76,7 @@ type AckCommit struct {
 
 type UpdateView struct {
 	Seq 		int32
+	Key         state.Key
 	WriterID	int32
 	CurrentTime	int32
 	Sender		int32

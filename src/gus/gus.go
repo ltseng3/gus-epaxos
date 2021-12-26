@@ -155,32 +155,8 @@ func (r *Replica) run() {
 
 	go r.WaitForClientConnections()
 
-	//Initialization
-	//Need to move here; otherwise, ConnectToPeers() would time out
-	//for i := 0; i < MAX_KEY; i++ {
-	//	// Tag
-	//	// r.currentTag[i] = gusproto.Tag{0, 0}
-	//
-	//	// View
-	//	r.view[i] = make([]map[int32]bool, MAX_TAG)
-	//	for j := 0; j < MAX_TAG; j++{
-	//		r.view[i][j] = make(map[int32]bool)
-	//	}
-	//	for k := 0; k < r.N; k++ {
-	//		r.view[i][0][int32(k)] = true
-	//	}
-	//
-	//	// storage's
-	//	//r.storage[i] = make(map[gusproto.Tag]state.Value)
-	//	//r.tmpStorage[i] = make(map[gusproto.Tag]state.Value)
-	//
-	//}
-
-
-
 	if r.Id == 0 {
 		r.IsLeader = true
-		//r.currentTag[42].Timestamp = 100 // For testing
 	}
 
 	clockChan = make(chan bool, 1)
@@ -263,18 +239,18 @@ func (r *Replica) run() {
 			currentTag := r.currentTag[key]
 			if currentTag.LessThan(writeTag){
 				r.currentTag[key] = gusproto.Tag{write.CurrentTime, write.WriterID}
-				r.bookkeeping[seq].valueToWrite = write.Command.V
+				//r.bookkeeping[seq].valueToWrite = write.Command.V
 
-				_, existence := r.storage[key]
-				if !existence {
+				_, existence2 := r.storage[key]
+				if !existence2 {
 					r.storage[key] = make(map[gusproto.Tag]state.Value)
 				}
 
 				r.storage[key][r.currentTag[key]] = write.Command.V
 				r.bcastUpdateView(seq, write.WriterID, r.currentTag[key].Timestamp)
 			}else {
-				_, existence := r.tmpStorage[key]
-				if !existence {
+				_, existence2 := r.tmpStorage[key]
+				if !existence2 {
 					r.tmpStorage[key] = make(map[gusproto.Tag]state.Value)
 				}
 				r.tmpStorage[key][r.currentTag[key]] = write.Command.V
@@ -324,7 +300,7 @@ func (r *Replica) run() {
 					r.reset()
 
 					// Tell other replicas to commit
-					r.bcastCommitWrite(ackWrite.Seq, ackWrite.WriterID, r.currentTag[key].Timestamp)
+					r.bcastCommitWrite(ackWrite.Seq, ackWrite.WriterID, r.currentTag[key].Timestamp, key)
 					r.bcastUpdateView(ackWrite.Seq, ackWrite.WriterID, r.currentTag[key].Timestamp)
 
 					r.initializeView(key, r.currentTag[key])
@@ -332,7 +308,7 @@ func (r *Replica) run() {
 					r.storage[key][r.currentTag[key]] = r.bookkeeping[ackWrite.Seq].valueToWrite
 				}else{
 					r.currentTag[key] = gusproto.Tag{r.bookkeeping[ackWrite.Seq].maxTime+1, r.Id}
-					r.bcastCommitWrite(ackWrite.Seq, ackWrite.WriterID, r.currentTag[key].Timestamp)
+					r.bcastCommitWrite(ackWrite.Seq, ackWrite.WriterID, r.currentTag[key].Timestamp, key)
 					r.bookkeeping[ackWrite.Seq].waitForAckCommit = true
 				}
 			}
@@ -341,7 +317,8 @@ func (r *Replica) run() {
 		case commitWriteS := <-r.commitWriteChan:
 			commitWrite := commitWriteS.(*gusproto.CommitWrite)
 			commitTag := gusproto.Tag{commitWrite.CurrentTime, commitWrite.WriterID}
-			key := r.bookkeeping[commitWrite.Seq].key
+			key := commitWrite.Key
+			//key := r.bookkeeping[commitWrite.Seq].key
 			// This needs to be changed ++++
 
 			if commitTag.GreaterThan(r.currentTag[key]) {
@@ -395,27 +372,31 @@ func (r *Replica) run() {
 			//TODO: How to test this???
 			updateView := updateViewS.(*gusproto.UpdateView)
 			fmt.Printf("GUS: Replica %d: updating view from %d\n", r.Id, updateView.Sender)
-			key := r.bookkeeping[updateView.Seq].key
+			//key := r.bookkeeping[updateView.Seq].key
+			key := updateView.Key
 
 			r.initializeView(key, r.currentTag[key])
 			r.view[key][r.currentTag[key]][updateView.Sender] = true
 
-			if r.bookkeeping[updateView.Seq].proposal != nil && !r.bookkeeping[updateView.Seq].complete{
-				if (r.bookkeeping[updateView.Seq].proposal.Command.Op == state.GET) && r.bookkeeping[updateView.Seq].checkStorageForRead {
 
-					r.bookkeeping[updateView.Seq].complete = true
-					r.busyKey[key] = false
-					r.reset()
-					tag := gusproto.Tag{r.currentTag[key].Timestamp, r.currentTag[key].WriterID}
-					// Reply to client
-					propreply := &genericsmrproto.ProposeReplyTS{
-						TRUE,
-						r.bookkeeping[updateView.Seq].proposal.CommandId,
-						r.storage[key][tag],
-						r.bookkeeping[updateView.Seq].proposal.Timestamp}
-					r.ReplyProposeTS(propreply, r.bookkeeping[updateView.Seq].proposal.Reply)
+			if r.busyKey[key] {
+				if r.bookkeeping[updateView.Seq].proposal != nil && !r.bookkeeping[updateView.Seq].complete {
+					if (r.bookkeeping[updateView.Seq].proposal.Command.Op == state.GET) && r.bookkeeping[updateView.Seq].checkStorageForRead {
+
+						r.bookkeeping[updateView.Seq].complete = true
+						r.busyKey[key] = false
+						r.reset()
+						tag := gusproto.Tag{r.currentTag[key].Timestamp, r.currentTag[key].WriterID}
+						// Reply to client
+						propreply := &genericsmrproto.ProposeReplyTS{
+							TRUE,
+							r.bookkeeping[updateView.Seq].proposal.CommandId,
+							r.storage[key][tag],
+							r.bookkeeping[updateView.Seq].proposal.Timestamp}
+						r.ReplyProposeTS(propreply, r.bookkeeping[updateView.Seq].proposal.Reply)
+					}
+
 				}
-
 			}
 			break
 
@@ -591,7 +572,7 @@ func (r *Replica) bcastAckWrite(seq int32, writerID int32, staleTag uint8, tag g
 
 
 var commitWriteMSG gusproto.CommitWrite
-func (r *Replica) bcastCommitWrite(seq int32, writerID int32, timestamp int32) {
+func (r *Replica) bcastCommitWrite(seq int32, writerID int32, timestamp int32, key state.Key) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Write bcast failed:", err)
@@ -601,6 +582,7 @@ func (r *Replica) bcastCommitWrite(seq int32, writerID int32, timestamp int32) {
 	commitWriteMSG.Seq = seq
 	commitWriteMSG.WriterID = writerID
 	commitWriteMSG.CurrentTime = timestamp
+	commitWriteMSG.Key = key
 
 	args := &commitWriteMSG
 

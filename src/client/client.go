@@ -27,7 +27,7 @@ var procs *int = flag.Int("p", 2, "GOMAXPROCS.")
 var conflicts *int = flag.Int("c", 0, "Percentage of conflicts. If -1, uses Zipfian distribution.")
 var forceLeader = flag.Int("l", -1, "Force client to talk to a certain replica.")
 var startRange = flag.Int("sr", 0, "Key range start")
-var T = flag.Int("T", 10, "Number of threads (simulated clients).")
+var T = flag.Int("T", 16, "Number of threads (simulated clients).")
 var outstandingReqs = flag.Int64("or", 1, "Number of outstanding requests a thread can have at any given time.")
 var theta = flag.Float64("theta", 0.99, "Theta zipfian parameter")
 var zKeys = flag.Uint64("z", 1e9, "Number of unique keys in zipfian distribution.")
@@ -98,6 +98,11 @@ func main() {
 	readings := make(chan *response, 100000)
 
 	for i := 0; i < *T; i++ {
+
+		// testing multiple replicas here!!!
+		//leadRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+		//leader = leadRand.Intn(3)
+
 		server, err := net.Dial("tcp", rlReply.ReplicaList[leader])
 		if err != nil {
 			log.Fatalf("Error connecting to replica %d\n", leader)
