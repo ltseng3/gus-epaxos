@@ -52,7 +52,7 @@ type Write struct {
 	Seq         int32
 	WriterID    int32
 	CurrentTime int32
-	Command     []state.Command
+	Command     state.Command
 }
 
 type AckWrite struct {
@@ -83,7 +83,7 @@ type UpdateView struct {
 type Read struct {
 	Seq      int32
 	ReaderID int32
-	Command  []state.Command
+	Command  state.Command
 }
 
 type AckRead struct {

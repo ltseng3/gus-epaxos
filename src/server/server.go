@@ -9,6 +9,7 @@ import (
 	"masterproto"
 	"mencius"
 	"gus"
+	"fastpaxos"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -28,6 +29,7 @@ var doGus *bool = flag.Bool("gus", true," Use Gus as the replication protocol. D
 var doMencius *bool = flag.Bool("m", false, "Use Mencius as the replication protocol. Defaults to false.")
 var doGpaxos *bool = flag.Bool("g", false, "Use Generalized Paxos as the replication protocol. Defaults to false.")
 var doEpaxos *bool = flag.Bool("e", false, "Use EPaxos as the replication protocol. Defaults to false.")
+var doFastpaxos *bool = flag.Bool("f", false, "Use Fast Paxos as the replication protocol. Defaults to false.")
 var procs *int = flag.Int("p", 2, "GOMAXPROCS. Defaults to 2")
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 var thrifty = flag.Bool("thrifty", false, "Use only as many messages as strictly required for inter-replica communication.")
@@ -61,7 +63,10 @@ func main() {
 		log.Println("Starting Gus replica...")
 		rep := gus.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable)
 		rpc.Register(rep)
-
+	} else if *doFastpaxos {
+		log.Println("Starting Fast Paxos replica...")
+		rep := fastpaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable)
+		rpc.Register(rep)
 	} else if *doEpaxos {
 		log.Println("Starting Egalitarian Paxos replica...")
 		rep := epaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *beacon, *durable)

@@ -140,7 +140,7 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo)
 				args.Command.K = 42
 			} else {
 				//args.Command.K = state.Key(*startRange + 43 + int(id % 888))
-				args.Command.K = state.Key(*startRange + 43 + id)
+				args.Command.K = state.Key(int32(*startRange) + 43 + id)
 			}
 		} else {
 			args.Command.K = state.Key(zipf.NextNumber())
