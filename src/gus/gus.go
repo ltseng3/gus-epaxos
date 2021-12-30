@@ -12,7 +12,7 @@ import (
 	"gusproto"
 	"state"
 	"time"
-	"sync"
+	//"sync"
 )
 
 const CHAN_BUFFER_SIZE = 200000
@@ -26,8 +26,6 @@ const MAX_TAG = 1000 // 5000*3, MAX_Key = 1000
 const MAX_KEY = 5000 // If this is too large, something blows up
 
 //const MAX_WRITE = 5000
-
-var mu  sync.Mutex
 
 type Replica struct {
 	*genericsmr.Replica // extends a generic Paxos replica
@@ -140,7 +138,7 @@ var clockChan chan bool
 
 func (r *Replica) clock() {
 	for !r.Shutdown {
-		time.Sleep(1000)
+		time.Sleep(5*1e6) // 5ms
 		clockChan <- true
 	}
 }
@@ -182,9 +180,7 @@ func (r *Replica) run() {
 			key := propose.Command.K
 
 			if r.busyKey[key] {
-				mu.Lock()
 				r.pendingOps = append(r.pendingOps, propose)
-				mu.Unlock()
 			}else {
 
 				r.busyKey[key] = true
@@ -296,8 +292,9 @@ func (r *Replica) run() {
 						r.ReplyProposeTS(propreply, r.bookkeeping[ackWrite.Seq].proposal.Reply)
 						r.bookkeeping[ackWrite.Seq].complete = true
 					}
+
 					r.busyKey[key] = false
-					r.reset()
+					r.reset(ackWrite.Seq)
 
 					// Tell other replicas to commit
 					r.bcastCommitWrite(ackWrite.Seq, ackWrite.WriterID, r.currentTag[key].Timestamp, key)
@@ -362,7 +359,7 @@ func (r *Replica) run() {
 					r.initializeView(key, r.currentTag[key])
 					r.view[key][r.currentTag[key]][r.Id] = true
 					r.busyKey[key] = false
-					r.reset()
+					r.reset(ackCommit.Seq)
 				}
 
 			}
@@ -384,8 +381,6 @@ func (r *Replica) run() {
 					if (r.bookkeeping[updateView.Seq].proposal.Command.Op == state.GET) && r.bookkeeping[updateView.Seq].checkStorageForRead {
 
 						r.bookkeeping[updateView.Seq].complete = true
-						r.busyKey[key] = false
-						r.reset()
 						tag := gusproto.Tag{r.currentTag[key].Timestamp, r.currentTag[key].WriterID}
 						// Reply to client
 						propreply := &genericsmrproto.ProposeReplyTS{
@@ -394,6 +389,11 @@ func (r *Replica) run() {
 							r.storage[key][tag],
 							r.bookkeeping[updateView.Seq].proposal.Timestamp}
 						r.ReplyProposeTS(propreply, r.bookkeeping[updateView.Seq].proposal.Reply)
+
+						// This line below simplifies the logic of reset()
+						r.bookkeeping[updateView.Seq].valueToWrite = r.storage[key][tag]
+						r.busyKey[key] = false
+						r.reset(updateView.Seq)
 					}
 
 				}
@@ -431,8 +431,10 @@ func (r *Replica) run() {
 						r.bookkeeping[ackRead.Seq].proposal.Timestamp}
 					r.ReplyProposeTS(propreply, r.bookkeeping[ackRead.Seq].proposal.Reply)
 					r.bookkeeping[ackRead.Seq].complete = true
+					// This line below simplifies the logic of reset()
+					r.bookkeeping[ackRead.Seq].valueToWrite = r.storage[key][tag]
 					r.busyKey[key] = false
-					r.reset()
+					r.reset(ackRead.Seq)
 
 					//r.currentSeq++
 				}else{
@@ -465,15 +467,37 @@ func (r *Replica) initializeView(key state.Key, tag gusproto.Tag) {
 	}
 }
 
-func (r *Replica) reset(){
-	mu.Lock()
+// seq denotes is associated with the operation that just completes
+func (r *Replica) reset(seq int32){
+	// Optimization: process pending operations
+	if len(r.pendingOps) != 0 {
+		var proposal *genericsmr.Propose
+
+		for i:=0; i < len(r.pendingOps); i++ {
+			proposal = r.pendingOps[i]
+			if proposal.Command.Op == state.GET{
+				propreply := &genericsmrproto.ProposeReplyTS{
+					TRUE,
+					proposal.CommandId,
+					r.bookkeeping[seq].valueToWrite,
+					proposal.Timestamp}
+				r.ReplyProposeTS(propreply, proposal.Reply)
+				//TODO: add this proposal to the booking for debugging/logging purpose
+			}
+
+			// Note: this does not preserve the original order of a slice
+			r.pendingOps[i] = r.pendingOps[len(r.pendingOps)-1]
+			r.pendingOps = r.pendingOps[:len(r.pendingOps)-1]
+			fmt.Print("Handling concurrent operations %s\n", len(r.pendingOps))
+		}
+	}
+
 	if len(r.pendingOps) != 0 {
 		oldProposal := r.pendingOps[0]
 		r.pendingOps = r.pendingOps[1:]
 		r.ProposeChan <- oldProposal
 		fmt.Println(len(r.pendingOps))
 	}
-	mu.Unlock()
 }
 
 

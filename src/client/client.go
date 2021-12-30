@@ -97,6 +97,8 @@ func main() {
 
 	readings := make(chan *response, 100000)
 
+	startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
+
 	for i := 0; i < *T; i++ {
 
 		// testing multiple replicas here!!!
@@ -115,6 +117,9 @@ func main() {
 			semaphore.NewWeighted(*outstandingReqs),
 			make(map[int32]time.Time, *outstandingReqs),
 		}
+
+		waitTime := startTime.Intn(3)
+		time.Sleep(time.Duration(waitTime)*100*1e6)
 
 		go simulatedClientWriter(writer, orInfo)
 		go simulatedClientReader(reader, orInfo, readings)
