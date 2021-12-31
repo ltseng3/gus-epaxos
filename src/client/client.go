@@ -48,6 +48,7 @@ type outstandingRequestInfo struct {
 	sync.Mutex
 	sema       *semaphore.Weighted // Controls number of outstanding operations
 	startTimes map[int32]time.Time // The time at which operations were sent out
+	isRead     map[int32]bool
 }
 
 // An outstandingRequestInfo per client thread
@@ -116,7 +117,7 @@ func main() {
 			sync.Mutex{},
 			semaphore.NewWeighted(*outstandingReqs),
 			make(map[int32]time.Time, *outstandingReqs),
-		}
+			make(map[int32]bool, *outstandingReqs)}
 
 		waitTime := startTime.Intn(3)
 		time.Sleep(time.Duration(waitTime)*100*1e6)
@@ -190,6 +191,9 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo)
 		writer.Flush()
 
 		orInfo.Lock()
+		if args.Command.Op == state.GET {
+			orInfo.isRead[id] = true
+		}
 		orInfo.startTimes[id] = before
 		orInfo.Unlock()
 	}
@@ -211,6 +215,7 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 
 		orInfo.Lock()
 		before := orInfo.startTimes[reply.CommandId]
+		isRead := orInfo.isRead[reply.CommandId]
 		delete(orInfo.startTimes, reply.CommandId)
 		orInfo.Unlock()
 
@@ -218,10 +223,12 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 		//commitToExec := float64(reply.Timestamp) / 1e6
 		commitLatency := float64(0) //rtt - commitToExec
 
-		readings <- &response{
-			after,
-			rtt,
-			commitLatency,
+		if isRead {
+			readings <- &response{
+				after,
+				rtt,
+				commitLatency,
+			}
 		}
 	}
 }

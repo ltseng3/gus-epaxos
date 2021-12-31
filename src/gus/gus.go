@@ -138,7 +138,7 @@ var clockChan chan bool
 
 func (r *Replica) clock() {
 	for !r.Shutdown {
-		time.Sleep(5*1e6) // 5ms
+		time.Sleep(1e6) // 1ms
 		clockChan <- true
 	}
 }
@@ -190,13 +190,13 @@ func (r *Replica) run() {
 
 				if propose.Command.Op == state.GET {
 					// GET
-					fmt.Printf("GUS: Processing Get by Replica %d\n", r.Id)
+					//fmt.Printf("GUS: Processing Get by Replica %d\n", r.Id)
 					r.bookkeeping[r.currentSeq].waitForAckRead = true
 					r.bcastRead(r.currentSeq, propose.Command)
 					r.currentSeq++
 				} else {
 					// PUT
-					fmt.Printf("GUS: Processing Put by Replica %d\n", r.Id)
+					//fmt.Printf("GUS: Processing Put by Replica %d\n", r.Id)
 
 					_, existence := r.storage[key]
 					if !existence {
@@ -253,15 +253,15 @@ func (r *Replica) run() {
 				staleTag = 1
 			}
 
-			fmt.Printf("Replica %d: Received Write from writer %d; value %d; time %d\n", r.Id, write.WriterID, write.Command.V, write.CurrentTime)
+			//fmt.Printf("Replica %d: Received Write from writer %d; value %d; time %d\n", r.Id, write.WriterID, write.Command.V, write.CurrentTime)
 
-			if r.Id == 0 {
-				fmt.Printf("Replica %d: +++++++++++++++\n", r.Id)
-				for index, element := range r.storage[key] {
-					fmt.Println(index.Timestamp, ", ", index.WriterID, "=>", element)
-				}
-				fmt.Printf("+++++++++++++++\n")
-			}
+			//if r.Id == 0 {
+			//	//fmt.Printf("Replica %d: +++++++++++++++\n", r.Id)
+			//	for index, element := range r.storage[key] {
+			//		//fmt.Println(index.Timestamp, ", ", index.WriterID, "=>", element)
+			//	}
+			//	//fmt.Printf("+++++++++++++++\n")
+			//}
 			r.bcastAckWrite(write.Seq, write.WriterID, staleTag, r.currentTag[key])
 			break
 
@@ -282,7 +282,7 @@ func (r *Replica) run() {
 				if r.bookkeeping[ackWrite.Seq].staleTag == 0 {// All staleTag = FALSE
 
 					// Reply to client
-					fmt.Printf("GUS: reply to client %d +++ Fast Path +++\n", r.currentSeq)
+					//fmt.Printf("GUS: reply to client %d +++ Fast Path +++\n", r.currentSeq)
 					if r.bookkeeping[ackWrite.Seq].proposal != nil {
 						propreply := &genericsmrproto.ProposeReplyTS{
 							TRUE,
@@ -344,7 +344,7 @@ func (r *Replica) run() {
 				if (r.bookkeeping[ackCommit.Seq].ackCommits >= (r.N-1)/2) && !r.bookkeeping[ackCommit.Seq].doneSecondWait {
 					r.bookkeeping[ackCommit.Seq].doneSecondWait = true
 					// Reply to client
-					fmt.Printf("GUS: reply to client %d +++ Slow Path +++\n", r.currentSeq)
+					//fmt.Printf("GUS: reply to client %d +++ Slow Path +++\n", r.currentSeq)
 					if r.bookkeeping[ackCommit.Seq].proposal != nil {
 						propreply := &genericsmrproto.ProposeReplyTS{
 							TRUE,
@@ -368,7 +368,7 @@ func (r *Replica) run() {
 		case updateViewS := <-r.updateViewChan:
 			//TODO: How to test this???
 			updateView := updateViewS.(*gusproto.UpdateView)
-			fmt.Printf("GUS: Replica %d: updating view from %d\n", r.Id, updateView.Sender)
+			//fmt.Printf("GUS: Replica %d: updating view from %d\n", r.Id, updateView.Sender)
 			//key := r.bookkeeping[updateView.Seq].key
 			key := updateView.Key
 
@@ -377,6 +377,7 @@ func (r *Replica) run() {
 
 
 			if r.busyKey[key] {
+				// If I'm still waiting to complete a read operation, only neede for n=5
 				if r.bookkeeping[updateView.Seq].proposal != nil && !r.bookkeeping[updateView.Seq].complete {
 					if (r.bookkeeping[updateView.Seq].proposal.Command.Op == state.GET) && r.bookkeeping[updateView.Seq].checkStorageForRead {
 
@@ -414,8 +415,19 @@ func (r *Replica) run() {
 
 			currentTag := r.currentTag[key]
 
+			// received a larger tag
 			if currentTag.LessThan(ackRead.CurrentTag) {
 				r.currentTag[key] = gusproto.Tag{ackRead.CurrentTag.Timestamp, ackRead.CurrentTag.WriterID}
+
+				// Optimizing read for n=3
+				_, existence := r.storage[key]
+				if !existence {
+					r.storage[key] = make(map[gusproto.Tag]state.Value)
+				}
+				r.storage[key][ackRead.CurrentTag] = ackRead.Value
+				r.initializeView(key, ackRead.CurrentTag)
+				r.view[key][ackRead.CurrentTag][r.Id] = true
+				r.bcastUpdateView(0, ackRead.CurrentTag.WriterID, ackRead.CurrentTag.Timestamp)
 			}
 
 			if (r.bookkeeping[ackRead.Seq].ackReads >= (r.N-1)/2) && r.bookkeeping[ackRead.Seq].waitForAckRead {
@@ -472,6 +484,8 @@ func (r *Replica) reset(seq int32){
 	// Optimization: process pending operations
 	if len(r.pendingOps) != 0 {
 		var proposal *genericsmr.Propose
+		var newSlice []*genericsmr.Propose
+
 
 		for i:=0; i < len(r.pendingOps); i++ {
 			proposal = r.pendingOps[i]
@@ -483,13 +497,13 @@ func (r *Replica) reset(seq int32){
 					proposal.Timestamp}
 				r.ReplyProposeTS(propreply, proposal.Reply)
 				//TODO: add this proposal to the booking for debugging/logging purpose
+			}else{
+				newSlice = append(newSlice, proposal)
 			}
-
-			// Note: this does not preserve the original order of a slice
-			r.pendingOps[i] = r.pendingOps[len(r.pendingOps)-1]
-			r.pendingOps = r.pendingOps[:len(r.pendingOps)-1]
-			fmt.Print("Handling concurrent operations %s\n", len(r.pendingOps))
+			fmt.Print("Handling concurrent operations %d\n", len(r.pendingOps))
 		}
+
+		r.pendingOps = newSlice
 	}
 
 	if len(r.pendingOps) != 0 {
@@ -552,6 +566,7 @@ func (r *Replica) bcastAckRead(seq int32, readerID int32, key state.Key) {
 	ackReadMSG.ReaderID = readerID
 	ackReadMSG.CurrentTag.Timestamp = r.currentTag[key].Timestamp
 	ackReadMSG.CurrentTag.WriterID = r.currentTag[key].WriterID
+	ackReadMSG.Value = r.storage[key][r.currentTag[key]]
 	args := &ackReadMSG
 
 	r.bcastAll(r.ackReadRPC, args)

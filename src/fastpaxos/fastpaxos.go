@@ -7,13 +7,10 @@ import (
 	"genericsmr"
 	"genericsmrproto"
 	"math"
-
-	//"io"
 	"log"
 	"fastpaxosproto"
 	"state"
 	"time"
-	"sync"
 )
 
 const CHAN_BUFFER_SIZE = 200000
@@ -27,8 +24,6 @@ const MAX_TAG = 1000 // 5000*3, MAX_Key = 1000
 const MAX_KEY = 5000 // If this is too large, something blows up
 
 //const MAX_WRITE = 5000
-
-var mu  sync.Mutex
 
 type Replica struct {
 	*genericsmr.Replica// extends a generic Paxos replica
@@ -177,9 +172,7 @@ func (r *Replica) run() {
 			key := propose.Command.K
 
 			if r.busyKey[key] {
-				mu.Lock()
 				r.pendingOps = append(r.pendingOps, propose)
-				mu.Unlock()
 			}else {
 
 				r.busyKey[key] = true
@@ -195,13 +188,13 @@ func (r *Replica) run() {
 
 				if propose.Command.Op == state.GET {
 					// GET
-					fmt.Printf("Fast Paxos: Processing Get by Replica %d\n", r.Id)
+					//fmt.Printf("Fast Paxos: Processing Get by Replica %d\n", r.Id)
 					r.bookkeeping[r.currentSeq].waitForAckRead = true
 					r.bcastRead(r.currentSeq, propose.Command)
 					r.currentSeq++
 				} else {
 					// PUT
-					fmt.Printf("Fast Paxos: Processing Put by Replica %d\n", r.Id)
+					//fmt.Printf("Fast Paxos: Processing Put by Replica %d\n", r.Id)
 
 					_, existence2 := r.storage[key]
 					if !existence2 {
@@ -282,7 +275,7 @@ func (r *Replica) run() {
 				if !r.bookkeeping[ackWrite.Seq].needSecondPhase {// All staleTag = FALSE
 
 					// Reply to client
-					fmt.Printf("Fasx Paxos: reply to client %d +++ Fast Path +++\n", r.currentSeq)
+					//fmt.Printf("Fasx Paxos: reply to client %d +++ Fast Path +++\n", r.currentSeq)
 					if r.bookkeeping[ackWrite.Seq].proposal != nil {
 						propreply := &genericsmrproto.ProposeReplyTS{
 							TRUE,
@@ -293,7 +286,7 @@ func (r *Replica) run() {
 						r.bookkeeping[ackWrite.Seq].complete = true
 					}
 					r.busyKey[key] = false
-					r.reset()
+					r.reset(ackWrite.Seq)
 
 					// Tell others to commit
 					r.bcastCommitWrite(ackWrite.Seq, ackWrite.WriterID, r.bookkeeping[ackWrite.Seq].maxVersion)
@@ -342,7 +335,7 @@ func (r *Replica) run() {
 				r.ReplyProposeTS(propreply, r.bookkeeping[seq].proposal.Reply)
 				r.bookkeeping[seq].complete = true
 				r.busyKey[key] = false
-				r.reset()
+				r.reset(seq)
 			}
 
 			break
@@ -382,8 +375,9 @@ func (r *Replica) run() {
 						r.bookkeeping[ackRead.Seq].proposal.Timestamp}
 					r.ReplyProposeTS(propreply, r.bookkeeping[ackRead.Seq].proposal.Reply)
 					r.bookkeeping[ackRead.Seq].complete = true
+					r.bookkeeping[ackRead.Seq].valueToWrite = r.storage[key][r.currentVersion[key]]
 					r.busyKey[key] = false
-					r.reset()
+					r.reset(ackRead.Seq)
 				}
 				r.bookkeeping[ackRead.Seq].waitForAckRead = false
 			}
@@ -394,15 +388,39 @@ func (r *Replica) run() {
 }
 
 
-func (r *Replica) reset(){
-	mu.Lock()
+// seq denotes is associated with the operation that just completes
+func (r *Replica) reset(seq int32){
+	// Optimization: process pending operations
+	if len(r.pendingOps) != 0 {
+		var proposal *genericsmr.Propose
+		var newSlice []*genericsmr.Propose
+
+
+		for i:=0; i < len(r.pendingOps); i++ {
+			proposal = r.pendingOps[i]
+			if proposal.Command.Op == state.GET{
+				propreply := &genericsmrproto.ProposeReplyTS{
+					TRUE,
+					proposal.CommandId,
+					r.bookkeeping[seq].valueToWrite,
+					proposal.Timestamp}
+				r.ReplyProposeTS(propreply, proposal.Reply)
+				//TODO: add this proposal to the booking for debugging/logging purpose
+			}else{
+				newSlice = append(newSlice, proposal)
+			}
+			fmt.Print("Handling concurrent operations %d\n", len(r.pendingOps))
+		}
+
+		r.pendingOps = newSlice
+	}
+
 	if len(r.pendingOps) != 0 {
 		oldProposal := r.pendingOps[0]
 		r.pendingOps = r.pendingOps[1:]
 		r.ProposeChan <- oldProposal
 		fmt.Println(len(r.pendingOps))
 	}
-	mu.Unlock()
 }
 
 

@@ -89,9 +89,10 @@ type Read struct {
 }
 
 type AckRead struct {
-	Seq 		int32
-	ReaderID	int32
-	CurrentTag	Tag
+	Seq        int32
+	ReaderID   int32
+	CurrentTag Tag
+	Value      state.Value
 }
 
 type Prepare struct {

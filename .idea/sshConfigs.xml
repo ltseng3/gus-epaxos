@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig host="128.110.217.120" id="fe12f69f-d6d0-4ef8-aa76-e7527f46ce70" keyPath="$USER_HOME$/.ssh/id_rsa" port="22" customName="ltseng@server1" nameFormat="CUSTOM" username="ltseng">
+        <option name="customName" value="ltseng@server1" />
+      </sshConfig>
+      <sshConfig host="128.110.217.135" id="7fbce25a-196e-4dda-bceb-4891cd3cca8a" keyPath="$USER_HOME$/.ssh/id_rsa" port="22" customName="ltseng@server2" nameFormat="CUSTOM" username="ltseng">
+        <option name="customName" value="ltseng@server2" />
+      </sshConfig>
+      <sshConfig host="128.110.217.119" id="838223a1-6ec7-4c8d-98f8-e0b35a268b68" keyPath="$USER_HOME$/.ssh/id_rsa" port="22" customName="ltseng@server3" nameFormat="CUSTOM" username="ltseng">
+        <option name="customName" value="ltseng@server3" />
+      </sshConfig>
+      <sshConfig host="128.110.217.154" id="e8545bb9-43d3-4053-8828-8d05ee291d9a" keyPath="$USER_HOME$/.ssh/id_rsa" port="22" customName="ltseng@client" nameFormat="CUSTOM" username="ltseng">
+        <option name="customName" value="ltseng@client" />
+      </sshConfig>
+    </configs>
+  </component>
+</project>

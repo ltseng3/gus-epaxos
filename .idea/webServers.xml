@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="6c5d5a0f-40d9-407e-a3ad-6866f96d8ddd" name="server1">
+        <fileTransfer rootFolder="/root/go/src/gus-epaxos" accessType="SFTP" host="128.110.217.120" port="22" sshConfigId="fe12f69f-d6d0-4ef8-aa76-e7527f46ce70" sshConfig="ltseng@server1" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="66351c8d-dd41-4aa3-9137-dcd207110675" name="server2">
+        <fileTransfer rootFolder="/root/go/src/gus-epaxos" accessType="SFTP" host="128.110.217.135" port="22" sshConfigId="7fbce25a-196e-4dda-bceb-4891cd3cca8a" sshConfig="ltseng@server2" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="49f64ef9-db4c-430b-b97a-c9cf228af8c5" name="server3">
+        <fileTransfer rootFolder="/root/go/src/gus-epaxos" accessType="SFTP" host="128.110.217.119" port="22" sshConfigId="838223a1-6ec7-4c8d-98f8-e0b35a268b68" sshConfig="ltseng@server3" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="d165b900-e671-478a-8238-642ebdf5f4ea" name="client">
+        <fileTransfer rootFolder="/root/go/src/gus-epaxos" accessType="SFTP" host="128.110.217.154" port="22" sshConfigId="e8545bb9-43d3-4053-8828-8d05ee291d9a" sshConfig="ltseng@client" keyPair="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
