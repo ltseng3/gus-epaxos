@@ -67,4 +67,4 @@ if __name__ == '__main__':
     files are stored on the remote client machines. Logs the metrics to stdout
     in json format.
     """
-    print(json.dumps(get_metrics(path.expanduser('/Users/tsengle/GolandProjects/gus-epaxos/'))))
+    print(json.dumps(get_metrics(path.expanduser('/root/go/src/gus-epaxos/'))))
