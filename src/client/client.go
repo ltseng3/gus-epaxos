@@ -34,12 +34,15 @@ var zKeys = flag.Uint64("z", 1e9, "Number of unique keys in zipfian distribution
 var poissonAvg = flag.Int("poisson", -1, "The average number of microseconds between requests. -1 disables Poisson.")
 var percentWrites = flag.Float64("writes", 1, "A float between 0 and 1 that corresponds to the percentage of requests that should be writes. The remainder will be reads.")
 var blindWrites = flag.Bool("blindwrites", false, "True if writes don't need to execute before clients receive responses.")
+var singleClusterTest = flag.Bool("singleClusterTest", true, "True if clients run on a VM in a single cluster")
 
 // Information about the latency of an operation
 type response struct {
 	receivedAt    time.Time
 	rtt           float64 // The operation latency, in ms
 	commitLatency float64 // The operation's commit latency, in ms
+	isRead        bool
+	replicaID     int
 }
 
 // Information pertaining to operations that have been issued but that have not
@@ -98,13 +101,14 @@ func main() {
 
 	readings := make(chan *response, 100000)
 
-	startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
+	//startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	for i := 0; i < *T; i++ {
 
-		// testing multiple replicas here!!!
-		//leadRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-		//leader = leadRand.Intn(3)
+		// automatically allocate clients equally
+		if *singleClusterTest {
+			leader = i % len(rlReply.ReplicaList)
+		}
 
 		server, err := net.Dial("tcp", rlReply.ReplicaList[leader])
 		if err != nil {
@@ -119,20 +123,25 @@ func main() {
 			make(map[int32]time.Time, *outstandingReqs),
 			make(map[int32]bool, *outstandingReqs)}
 
-		waitTime := startTime.Intn(3)
-		time.Sleep(time.Duration(waitTime)*100*1e6)
+		//waitTime := startTime.Intn(3)
+		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
 
 		go simulatedClientWriter(writer, orInfo)
-		go simulatedClientReader(reader, orInfo, readings)
+		go simulatedClientReader(reader, orInfo, readings, leader)
 
 		orInfos[i] = orInfo
 	}
 
-	printer(readings)
+	if *singleClusterTest {
+		printerMultipeFile(readings, len(rlReply.ReplicaList))
+	} else {
+		printer(readings)
+	}
 }
 
 func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo) {
-	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 0}, 0 /* timestamp */}
+	//args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 0}, 0 /* timestamp */}
+	args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 
 	conflictRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	zipf := zipfian.NewZipfianGenerator(*zKeys, *theta)
@@ -199,7 +208,7 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo)
 	}
 }
 
-func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo, readings chan *response) {
+func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo, readings chan *response, leader int) {
 	var reply genericsmrproto.ProposeReplyTS
 
 	for {
@@ -223,17 +232,18 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 		//commitToExec := float64(reply.Timestamp) / 1e6
 		commitLatency := float64(0) //rtt - commitToExec
 
-		if isRead {
-			readings <- &response{
-				after,
-				rtt,
-				commitLatency,
-			}
-		}
+		readings <- &response{
+			after,
+			rtt,
+			commitLatency,
+			isRead,
+			leader}
+
 	}
 }
 
 func printer(readings chan *response) {
+
 	lattputFile, err := os.Create("lattput.txt")
 	if err != nil {
 		log.Println("Error creating lattput file", err)
@@ -286,6 +296,87 @@ func printer(readings chan *response) {
 		// Log summary to lattput file
 		lattputFile.WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(),
 			avg, tput, count, totalOrs, avgCommit))
+
+		startTime = endTime
+	}
+}
+
+func printerMultipeFile(readings chan *response, numLeader int) {
+	lattputFile := make([]*os.File, numLeader)
+	latFileRead := make([]*os.File, numLeader)
+	latFileWrite := make([]*os.File, numLeader)
+
+	for i := 0; i < numLeader; i++ {
+		fileName := fmt.Sprintf("lattput-%d.txt", i)
+		err := os.ErrExist
+		lattputFile[i], err = os.Create(fileName)
+		if err != nil {
+			log.Println("Error creating lattput file", err)
+			return
+		}
+		//lattputFile.WriteString("# time (ns), avg lat over the past second, tput since last line, total count, totalOrs, avg commit lat over the past second\n")
+
+		fileName = fmt.Sprintf("latFileRead-%d.txt", i)
+		latFileRead[i], err = os.Create(fileName)
+		if err != nil {
+			log.Println("Error creating latency file", err)
+			return
+		}
+		//latFile.WriteString("# time (ns), latency, commit latency\n")
+
+		fileName = fmt.Sprintf("latFileWrite-%d.txt", i)
+		latFileWrite[i], err = os.Create(fileName)
+		if err != nil {
+			log.Println("Error creating latency file", err)
+			return
+		}
+	}
+
+	startTime := time.Now()
+
+	for {
+		time.Sleep(time.Second)
+
+		count := len(readings)
+		var sum float64 = 0
+		var commitSum float64 = 0
+		endTime := time.Now() // Set to current time in case there are no readings
+		for i := 0; i < count; i++ {
+			resp := <-readings
+
+			// Log all to latency file
+			if resp.isRead {
+				latFileRead[resp.replicaID].WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+			} else {
+				latFileWrite[resp.replicaID].WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+			}
+			sum += resp.rtt
+			commitSum += resp.commitLatency
+			endTime = resp.receivedAt
+		}
+
+		var avg float64
+		var avgCommit float64
+		var tput float64
+		if count > 0 {
+			avg = sum / float64(count)
+			avgCommit = commitSum / float64(count)
+			tput = float64(count) / endTime.Sub(startTime).Seconds()
+		}
+
+		totalOrs := 0
+		for i := 0; i < *T; i++ {
+			orInfos[i].Lock()
+			totalOrs += len(orInfos[i].startTimes)
+			orInfos[i].Unlock()
+		}
+
+		// Log summary to lattput file
+		//lattputFile.WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(), avg, tput, count, totalOrs, avgCommit))
+
+		for i := 0; i < numLeader; i++ {
+			lattputFile[i].WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(), avg, tput, count, totalOrs, avgCommit))
+		}
 
 		startTime = endTime
 	}
