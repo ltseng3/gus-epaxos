@@ -15,7 +15,7 @@ import (
 const CHAN_BUFFER_SIZE = 200000
 const TRUE = uint8(1)
 const FALSE = uint8(0)
-
+const OptimizedRead = true
 const MAX_OP = 50000000 // If this is too large, something blows up
 
 type Replica struct {
@@ -45,7 +45,8 @@ type Replica struct {
 	asyncStorage        map[state.Key]map[gusproto.Tag]state.Value
 	tmpStorage          map[state.Key]map[gusproto.Tag]state.Value
 	view                map[state.Key]map[gusproto.Tag][]bool //view[i][j][k] = Replica k has object i with tag j
-	busyKey             map[state.Key]bool
+	activeRead          map[state.Key]bool
+	activeWrite         map[state.Key]bool
 	leadingOp           map[state.Key]int32
 	pendingReads        []*genericsmr.Propose
 }
@@ -65,7 +66,7 @@ type OpsBookkeeping struct {
 	waitForAckRead      bool        // default = false, decide if need to wait for AckRead msg
 	checkStorageForRead bool        // default = false
 	complete            bool
-	isAsyncWrite        bool
+	isAsyncWrite        uint8
 }
 
 func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool) *Replica {
@@ -90,6 +91,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		make(map[state.Key]map[gusproto.Tag]state.Value),
 		make(map[state.Key]map[gusproto.Tag]state.Value),
 		make(map[state.Key]map[gusproto.Tag][]bool),
+		make(map[state.Key]bool),
 		make(map[state.Key]bool),
 		make(map[state.Key]int32),
 		[]*genericsmr.Propose{}}
@@ -164,13 +166,11 @@ func (r *Replica) run() {
 
 			key := propose.Command.K
 
-			if r.busyKey[key] && propose.Command.Op == state.GET {
+			if r.activeRead[key] && propose.Command.Op == state.GET && OptimizedRead {
 				// These reads can be optimized by tagging along with prior operations
 				r.pendingReads = append(r.pendingReads, propose)
 
 			} else {
-
-				r.busyKey[key] = true
 
 				// Initialize bookkeeping struct
 				r.bookkeeping[r.currentSeq].proposal = propose
@@ -180,6 +180,7 @@ func (r *Replica) run() {
 					// GET
 					dlog.Printf("GUS: Processing Get by Replica %d\n", r.Id)
 					// Wait for a quorum in the first phase
+					r.activeRead[key] = true
 					r.bookkeeping[r.currentSeq].waitForAckRead = true
 					r.bcastRead(r.currentSeq, propose.Command)
 					r.currentSeq++
@@ -187,21 +188,29 @@ func (r *Replica) run() {
 					// PUT
 					dlog.Printf("GUS: Processing Put by Replica %d\n", r.Id)
 
-					// Initialize storage space if key is not already existed
-					_, existence := r.storage[key]
-					if !existence {
-						r.storage[key] = make(map[gusproto.Tag]state.Value)
-					}
-					_, existence = r.tmpStorage[key]
-					if !existence {
-						r.tmpStorage[key] = make(map[gusproto.Tag]state.Value)
-					}
+					if r.activeWrite[key] {
+						r.bookkeeping[r.currentSeq].isAsyncWrite = uint8(1)
+						r.bookkeeping[r.currentSeq].maxTime = r.currentTag[key].Timestamp
 
-					// Put value and tag in the bookkeeping
-					r.bookkeeping[r.currentSeq].valueToWrite = propose.Command.V
-					r.bookkeeping[r.currentSeq].maxTime = r.currentTag[key].Timestamp + 1
-					r.currentTag[key] = gusproto.Tag{r.currentTag[key].Timestamp + 1, r.Id}
-					r.bcastWrite(r.currentSeq, propose.Command)
+						//TODO: put it in the async. storage
+
+					} else {
+						// Initialize storage space if key is not already existed
+						_, existence := r.storage[key]
+						if !existence {
+							r.storage[key] = make(map[gusproto.Tag]state.Value)
+						}
+						_, existence = r.tmpStorage[key]
+						if !existence {
+							r.tmpStorage[key] = make(map[gusproto.Tag]state.Value)
+						}
+
+						// Put value and tag in the bookkeeping
+						r.bookkeeping[r.currentSeq].valueToWrite = propose.Command.V
+						r.bookkeeping[r.currentSeq].maxTime = r.currentTag[key].Timestamp + 1
+						r.currentTag[key] = gusproto.Tag{r.currentTag[key].Timestamp + 1, r.Id}
+					}
+					r.bcastWrite(r.currentSeq, propose.Command, r.bookkeeping[r.currentSeq].isAsyncWrite)
 					r.currentSeq++
 				}
 			}
@@ -215,6 +224,7 @@ func (r *Replica) run() {
 			key := write.Command.K
 			seq := int32(write.Seq)
 			staleTag := uint8(0) // 0 = False
+			isAsyncWrite := write.IsAsync
 
 			// Default tag is (0, 0)
 			_, existence := r.currentTag[key]
@@ -222,27 +232,35 @@ func (r *Replica) run() {
 				r.currentTag[key] = gusproto.Tag{0, 0}
 			}
 			currentTag := r.currentTag[key]
-			// Incoming write has a larger tag
-			if currentTag.LessThan(writeTag) {
-				// Update tag and initialize storage
-				r.currentTag[key] = gusproto.Tag{write.CurrentTime, write.WriterID}
-				_, existence2 := r.storage[key]
-				if !existence2 {
-					r.storage[key] = make(map[gusproto.Tag]state.Value)
+			if isAsyncWrite == 0 {
+				// Incoming write has a larger tag
+				if currentTag.LessThan(writeTag) {
+					// Update tag and initialize storage
+					r.currentTag[key] = gusproto.Tag{write.CurrentTime, write.WriterID}
+					_, existence2 := r.storage[key]
+					if !existence2 {
+						r.storage[key] = make(map[gusproto.Tag]state.Value)
+					}
+					r.initializeView(key, r.currentTag[key])
+					r.view[key][r.currentTag[key]][r.Id] = true
+					r.storage[key][r.currentTag[key]] = write.Command.V
+					r.bcastUpdateView(seq, write.WriterID, r.currentTag[key].Timestamp)
+				} else {
+					// Incoming write has a smaller tag, so put it in the tmpStorage
+					_, existence2 := r.tmpStorage[key]
+					if !existence2 {
+						r.tmpStorage[key] = make(map[gusproto.Tag]state.Value)
+					}
+					r.tmpStorage[key][r.currentTag[key]] = write.Command.V
+					// Notify writer that it has a stale tag
+					staleTag = 1
 				}
-				r.initializeView(key, r.currentTag[key])
-				r.view[key][r.currentTag[key]][r.Id] = true
-				r.storage[key][r.currentTag[key]] = write.Command.V
-				r.bcastUpdateView(seq, write.WriterID, r.currentTag[key].Timestamp)
 			} else {
-				// Incoming write has a smaller tag, so put it in the tmpStorage
-				_, existence2 := r.tmpStorage[key]
-				if !existence2 {
-					r.tmpStorage[key] = make(map[gusproto.Tag]state.Value)
+				if currentTag.LessThan(writeTag) {
+					//TODO: put it in asyncStorage
+				} else {
+					staleTag = 1
 				}
-				r.tmpStorage[key][r.currentTag[key]] = write.Command.V
-				// Notify writer that it has a stale tag
-				staleTag = 1
 			}
 			r.bcastAckWrite(write.Seq, write.WriterID, staleTag, r.currentTag[key])
 			break
@@ -260,36 +278,56 @@ func (r *Replica) run() {
 				r.bookkeeping[seq].maxTime = ackWrite.OtherTag.Timestamp
 			}
 
-			// Check if I have received responses from a quorum
-			if (r.bookkeeping[seq].ackWrites >= (r.N-1)/2) && !r.bookkeeping[seq].doneFirstWait && !r.bookkeeping[seq].complete {
-				r.bookkeeping[seq].doneFirstWait = true
-				if r.bookkeeping[seq].staleTag == 0 { // All staleTag = FALSE
-					// Reply to writer client
-					dlog.Printf("GUS: reply to client %d +++ Fast Path +++\n", r.currentSeq)
-					if r.bookkeeping[seq].proposal != nil {
-						propreply := &genericsmrproto.ProposeReplyTS{
-							TRUE,
-							r.bookkeeping[seq].proposal.CommandId,
-							state.NIL,
-							r.bookkeeping[seq].proposal.Timestamp}
-						r.ReplyProposeTS(propreply, r.bookkeeping[seq].proposal.Reply)
-						r.bookkeeping[seq].complete = true
+			if r.bookkeeping[seq].isAsyncWrite == 0 {
+				// Check if I have received responses from a quorum
+				if (r.bookkeeping[seq].ackWrites >= (r.N-1)/2) && !r.bookkeeping[seq].doneFirstWait && !r.bookkeeping[seq].complete {
+					r.bookkeeping[seq].doneFirstWait = true
+					if r.bookkeeping[seq].staleTag == 0 { // All staleTag = FALSE
+						// Reply to writer client
+						dlog.Printf("GUS: reply to client %d +++ Fast Path +++\n", r.currentSeq)
+						if r.bookkeeping[seq].proposal != nil {
+							propreply := &genericsmrproto.ProposeReplyTS{
+								TRUE,
+								r.bookkeeping[seq].proposal.CommandId,
+								state.NIL,
+								r.bookkeeping[seq].proposal.Timestamp}
+							r.ReplyProposeTS(propreply, r.bookkeeping[seq].proposal.Reply)
+							r.bookkeeping[seq].complete = true
+						}
+						r.bcastUpdateView(seq, ackWrite.WriterID, r.currentTag[key].Timestamp)
+						r.initializeView(key, r.currentTag[key])
+						r.view[key][r.currentTag[key]][r.Id] = true
+						r.storage[key][r.currentTag[key]] = r.bookkeeping[seq].valueToWrite
+					} else {
+						// There is a staleTag = TRUE
+						r.currentTag[key] = gusproto.Tag{r.bookkeeping[seq].maxTime + 1, r.Id}
+						r.bcastCommitWrite(seq, ackWrite.WriterID, r.currentTag[key].Timestamp, key, r.bookkeeping[seq].isAsyncWrite)
+						// Make sure to receive AckCommit from a quorum
+						r.bookkeeping[seq].waitForAckCommit = true
 					}
-
-					r.busyKey[key] = false
-					r.reset(seq)
-
-					r.bcastUpdateView(seq, ackWrite.WriterID, r.currentTag[key].Timestamp)
-
-					r.initializeView(key, r.currentTag[key])
-					r.view[key][r.currentTag[key]][r.Id] = true
-					r.storage[key][r.currentTag[key]] = r.bookkeeping[seq].valueToWrite
-				} else {
-					// There is a staleTag = TRUE
-					r.currentTag[key] = gusproto.Tag{r.bookkeeping[seq].maxTime + 1, r.Id}
-					r.bcastCommitWrite(seq, ackWrite.WriterID, r.currentTag[key].Timestamp, key)
-					// Make sure to receive AckCommit from a quorum
-					r.bookkeeping[seq].waitForAckCommit = true
+				}
+			} else {
+				if (r.bookkeeping[seq].ackWrites >= (r.N-1)/2) && !r.bookkeeping[seq].doneFirstWait && !r.bookkeeping[seq].complete {
+					r.bookkeeping[seq].doneFirstWait = true
+					if r.bookkeeping[seq].staleTag == 0 { // All staleTag = FALSE
+						// Reply to writer client
+						dlog.Printf("GUS: reply to client %d +++ Fast Path +++\n", r.currentSeq)
+						if r.bookkeeping[seq].proposal != nil {
+							propreply := &genericsmrproto.ProposeReplyTS{
+								TRUE,
+								r.bookkeeping[seq].proposal.CommandId,
+								state.NIL,
+								r.bookkeeping[seq].proposal.Timestamp}
+							r.ReplyProposeTS(propreply, r.bookkeeping[seq].proposal.Reply)
+							r.bookkeeping[seq].complete = true
+						}
+						// TODO: async storage
+					} else {
+						// There is a staleTag = TRUE
+						r.bcastCommitWrite(seq, ackWrite.WriterID, r.bookkeeping[seq].maxTime+1, key, r.bookkeeping[seq].isAsyncWrite)
+						// Make sure to receive AckCommit from a quorum
+						r.bookkeeping[seq].waitForAckCommit = true
+					}
 				}
 			}
 			break
@@ -298,21 +336,26 @@ func (r *Replica) run() {
 			commitWrite := commitWriteS.(*gusproto.CommitWrite)
 			commitTag := gusproto.Tag{commitWrite.CurrentTime, commitWrite.WriterID}
 			key := commitWrite.Key
+			isAsyncWrite := commitWrite.IsAsync
 
-			if commitTag.GreaterThan(r.currentTag[key]) {
-				r.bcastUpdateView(commitWrite.Seq, commitWrite.WriterID, commitWrite.CurrentTime)
-				r.currentTag[key] = gusproto.Tag{commitTag.Timestamp, commitTag.WriterID}
-			}
+			if isAsyncWrite == 0 {
+				if commitTag.GreaterThan(r.currentTag[key]) {
+					r.bcastUpdateView(commitWrite.Seq, commitWrite.WriterID, commitWrite.CurrentTime)
+					r.currentTag[key] = gusproto.Tag{commitTag.Timestamp, commitTag.WriterID}
+				}
 
-			_, existence := r.storage[key]
-			if !existence {
-				r.storage[key] = make(map[gusproto.Tag]state.Value)
+				_, existence := r.storage[key]
+				if !existence {
+					r.storage[key] = make(map[gusproto.Tag]state.Value)
+				}
+				// Move value from tmpStorage to Storage
+				r.storage[key][r.currentTag[key]] = r.tmpStorage[key][r.currentTag[key]]
+				delete(r.tmpStorage[key], r.currentTag[key])
+				r.initializeView(key, r.currentTag[key])
+				r.view[key][r.currentTag[key]][r.Id] = true
+			} else {
+				//TODO: async storage
 			}
-			// Move value from tmpStorage to Storage
-			r.storage[key][r.currentTag[key]] = r.tmpStorage[key][r.currentTag[key]]
-			delete(r.tmpStorage[key], r.currentTag[key])
-			r.initializeView(key, r.currentTag[key])
-			r.view[key][r.currentTag[key]][r.Id] = true
 			r.bcastAckCommit(commitWrite.Seq, commitWrite.WriterID)
 			break
 
@@ -322,9 +365,25 @@ func (r *Replica) run() {
 			r.bookkeeping[seq].ackCommits++
 			key := r.bookkeeping[seq].key
 
-			if r.bookkeeping[seq].waitForAckCommit && !r.bookkeeping[seq].complete && r.bookkeeping[seq].ackCommits >= (r.N-1)/2 {
-				// Reply to client
-				dlog.Printf("GUS: reply to client %d +++ Slow Path +++\n", r.currentSeq)
+			if r.bookkeeping[seq].isAsyncWrite == 0 {
+				if r.bookkeeping[seq].waitForAckCommit && !r.bookkeeping[seq].complete && r.bookkeeping[seq].ackCommits >= (r.N-1)/2 {
+					// Reply to client
+					dlog.Printf("GUS: reply to client %d +++ Slow Path +++\n", r.currentSeq)
+					if r.bookkeeping[seq].proposal != nil {
+						propreply := &genericsmrproto.ProposeReplyTS{
+							TRUE,
+							r.bookkeeping[seq].proposal.CommandId,
+							state.NIL,
+							r.bookkeeping[seq].proposal.Timestamp}
+						r.ReplyProposeTS(propreply, r.bookkeeping[seq].proposal.Reply)
+					}
+					r.bookkeeping[seq].complete = true
+					r.bcastUpdateView(seq, ackCommit.WriterID, r.currentTag[key].Timestamp)
+					r.storage[key][r.currentTag[key]] = r.bookkeeping[seq].valueToWrite
+					r.initializeView(key, r.currentTag[key])
+					r.view[key][r.currentTag[key]][r.Id] = true
+				}
+			} else {
 				if r.bookkeeping[seq].proposal != nil {
 					propreply := &genericsmrproto.ProposeReplyTS{
 						TRUE,
@@ -334,12 +393,7 @@ func (r *Replica) run() {
 					r.ReplyProposeTS(propreply, r.bookkeeping[seq].proposal.Reply)
 				}
 				r.bookkeeping[seq].complete = true
-				r.bcastUpdateView(seq, ackCommit.WriterID, r.currentTag[key].Timestamp)
-				r.storage[key][r.currentTag[key]] = r.bookkeeping[seq].valueToWrite
-				r.initializeView(key, r.currentTag[key])
-				r.view[key][r.currentTag[key]][r.Id] = true
-				r.busyKey[key] = false
-				r.reset(seq)
+				// TODO: async storage
 			}
 			break
 
@@ -421,7 +475,7 @@ func (r *Replica) run() {
 					r.bookkeeping[seq].complete = true
 					// This line below simplifies the logic of reset()
 					r.bookkeeping[seq].valueToWrite = r.storage[key][tag]
-					r.busyKey[key] = false
+					r.activeRead[key] = false
 					r.reset(seq)
 				} else {
 					// Make sure the second phase waits for a quorum
@@ -531,7 +585,7 @@ func (r *Replica) bcastAckRead(seq int32, readerID int32, key state.Key) {
 
 var writeMSG gusproto.Write
 
-func (r *Replica) bcastWrite(seq int32, command state.Command) {
+func (r *Replica) bcastWrite(seq int32, command state.Command, isAsync uint8) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Write bcast failed:", err)
@@ -542,6 +596,7 @@ func (r *Replica) bcastWrite(seq int32, command state.Command) {
 	writeMSG.WriterID = r.Id
 	writeMSG.CurrentTime = r.currentTag[r.bookkeeping[seq].key].Timestamp
 	writeMSG.Command = command
+	writeMSG.IsAsync = isAsync
 	args := &writeMSG
 
 	r.bcastAll(r.writeRPC, args)
@@ -570,7 +625,7 @@ func (r *Replica) bcastAckWrite(seq int32, writerID int32, staleTag uint8, tag g
 
 var commitWriteMSG gusproto.CommitWrite
 
-func (r *Replica) bcastCommitWrite(seq int32, writerID int32, timestamp int32, key state.Key) {
+func (r *Replica) bcastCommitWrite(seq int32, writerID int32, timestamp int32, key state.Key, isAsync uint8) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Write bcast failed:", err)
@@ -581,6 +636,7 @@ func (r *Replica) bcastCommitWrite(seq int32, writerID int32, timestamp int32, k
 	commitWriteMSG.WriterID = writerID
 	commitWriteMSG.CurrentTime = timestamp
 	commitWriteMSG.Key = key
+	commitWriteMSG.IsAsync = isAsync
 
 	args := &commitWriteMSG
 

@@ -51,6 +51,7 @@ type Write struct {
 	WriterID    int32
 	CurrentTime int32
 	Command     state.Command
+	IsAsync     uint8
 }
 
 type AckWrite struct {
@@ -65,27 +66,7 @@ type CommitWrite struct {
 	Key         state.Key
 	WriterID    int32
 	CurrentTime int32
-}
-
-// Handling parallel/async write
-
-type AsyncWrite struct {
-	Seq         int32
-	WriterID    int32
-	CurrentTime int32
-	Command     state.Command
-}
-
-type AckAsyncWrite struct {
-	Seq      int32
-	WriterID int32
-}
-
-type CommitAsyncWrite struct {
-	Seq         int32
-	Key         state.Key
-	WriterID    int32
-	CurrentTime int32
+	IsAsync     uint8
 }
 
 type AckCommit struct {
