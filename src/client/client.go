@@ -140,8 +140,8 @@ func main() {
 }
 
 func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo) {
-	//args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 0}, 0 /* timestamp */}
-	args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
+	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 0}, 0 /* timestamp */}
+	//args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 
 	conflictRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	zipf := zipfian.NewZipfianGenerator(*zKeys, *theta)
@@ -302,21 +302,17 @@ func printer(readings chan *response) {
 }
 
 func printerMultipeFile(readings chan *response, numLeader int) {
-	lattputFile := make([]*os.File, numLeader)
+	lattputFile, err := os.Create("lattput.txt")
+	if err != nil {
+		log.Println("Error creating lattput file", err)
+		return
+	}
+
 	latFileRead := make([]*os.File, numLeader)
 	latFileWrite := make([]*os.File, numLeader)
 
 	for i := 0; i < numLeader; i++ {
-		fileName := fmt.Sprintf("lattput-%d.txt", i)
-		err := os.ErrExist
-		lattputFile[i], err = os.Create(fileName)
-		if err != nil {
-			log.Println("Error creating lattput file", err)
-			return
-		}
-		//lattputFile.WriteString("# time (ns), avg lat over the past second, tput since last line, total count, totalOrs, avg commit lat over the past second\n")
-
-		fileName = fmt.Sprintf("latFileRead-%d.txt", i)
+		fileName := fmt.Sprintf("latFileRead-%d.txt", i)
 		latFileRead[i], err = os.Create(fileName)
 		if err != nil {
 			log.Println("Error creating latency file", err)
@@ -374,9 +370,7 @@ func printerMultipeFile(readings chan *response, numLeader int) {
 		// Log summary to lattput file
 		//lattputFile.WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(), avg, tput, count, totalOrs, avgCommit))
 
-		for i := 0; i < numLeader; i++ {
-			lattputFile[i].WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(), avg, tput, count, totalOrs, avgCommit))
-		}
+		lattputFile.WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(), avg, tput, count, totalOrs, avgCommit))
 
 		startTime = endTime
 	}

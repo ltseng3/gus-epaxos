@@ -26,11 +26,11 @@ type Tag struct {
 
 func (a *Tag) Compare(b Tag) int {
 	if a.Timestamp < b.Timestamp || a.Timestamp == b.Timestamp && a.WriterID < b.WriterID {
-		return -1;
+		return -1
 	} else if a.Timestamp == b.Timestamp && a.WriterID == b.WriterID {
-		return 0;
+		return 0
 	} else {
-		return 1;
+		return 1
 	}
 }
 
@@ -46,8 +46,6 @@ func (a *Tag) Equals(b Tag) bool {
 	return a.Compare(b) == 0
 }
 
-
-
 type Write struct {
 	Seq         int32
 	WriterID    int32
@@ -56,10 +54,10 @@ type Write struct {
 }
 
 type AckWrite struct {
-	Seq 		int32
-	WriterID	int32
-	StaleTag	uint8
-	OtherTag	Tag
+	Seq      int32
+	WriterID int32
+	StaleTag uint8
+	OtherTag Tag
 }
 
 type CommitWrite struct {
@@ -69,17 +67,38 @@ type CommitWrite struct {
 	CurrentTime int32
 }
 
+// Handling parallel/async write
+
+type AsyncWrite struct {
+	Seq         int32
+	WriterID    int32
+	CurrentTime int32
+	Command     state.Command
+}
+
+type AckAsyncWrite struct {
+	Seq      int32
+	WriterID int32
+}
+
+type CommitAsyncWrite struct {
+	Seq         int32
+	Key         state.Key
+	WriterID    int32
+	CurrentTime int32
+}
+
 type AckCommit struct {
-	Seq 		int32
-	WriterID	int32
+	Seq      int32
+	WriterID int32
 }
 
 type UpdateView struct {
-	Seq 		int32
+	Seq         int32
 	Key         state.Key
-	WriterID	int32
-	CurrentTime	int32
-	Sender		int32
+	WriterID    int32
+	CurrentTime int32
+	Sender      int32
 }
 
 type Read struct {
@@ -100,7 +119,7 @@ type Prepare struct {
 	Instance   int32
 	Ballot     int32
 	ToInfinity uint8
-	Test 	   int32
+	Test       int32
 }
 
 type PrepareReply struct {

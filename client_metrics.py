@@ -36,13 +36,45 @@ def get_metrics(dirname):
             l = l.split(' ')
             tputs.append(float(l[2]))
 
-    with open(path.join(dirname, 'latency.txt')) as f:
-        exec_lats = []
-        commit_lats = []
+    with open(path.join(dirname, 'latFileRead-0.txt')) as f:
+        exec_lats_read0 = []
+        # commit_lats = []
         for l in f:
             l = l.split(' ')
-            exec_lats.append(float(l[1]))
-            commit_lats.append(float(l[2]))
+            exec_lats_read0.append(float(l[1]))
+            # commit_lats.append(float(l[2]))
+
+    with open(path.join(dirname, 'latFileRead-1.txt')) as f:
+        exec_lats_read1 = []
+        for l in f:
+            l = l.split(' ')
+            exec_lats_read1.append(float(l[1]))
+
+    with open(path.join(dirname, 'latFileRead-2.txt')) as f:
+        exec_lats_read2 = []
+        for l in f:
+            l = l.split(' ')
+            exec_lats_read2.append(float(l[1]))
+
+    with open(path.join(dirname, 'latFileWrite-0.txt')) as f:
+        exec_lats_write0 = []
+        # commit_lats = []
+        for l in f:
+            l = l.split(' ')
+            exec_lats_write0.append(float(l[1]))
+            # commit_lats.append(float(l[2]))
+
+    with open(path.join(dirname, 'latFileWrite-1.txt')) as f:
+        exec_lats_write1 = []
+        for l in f:
+            l = l.split(' ')
+            exec_lats_write1.append(float(l[1]))
+
+    with open(path.join(dirname, 'latFileWrite-2.txt')) as f:
+        exec_lats_write2 = []
+        for l in f:
+            l = l.split(' ')
+            exec_lats_write2.append(float(l[1]))
 
     return {
         #'mean_lat_commit': statistics.mean(commit_lats),
@@ -50,15 +82,50 @@ def get_metrics(dirname):
         #'p90_lat_commit': np.percentile(commit_lats, 90),
         #'p95_lat_commit': np.percentile(commit_lats, 95),
         #'p99_lat_commit': np.percentile(commit_lats, 99),
-        'mean_lat_exec': statistics.mean(exec_lats),
-        'p50_lat_exec': np.percentile(exec_lats, 50),
-        'p90_lat_exec': np.percentile(exec_lats, 90),
-        'p95_lat_exec': np.percentile(exec_lats, 95),
-        'p99_lat_exec': np.percentile(exec_lats, 99),
-        'p999_lat_exec': np.percentile(exec_lats, 99.9),
-        'p9999_lat_exec': np.percentile(exec_lats, 99.99),
+        'mean_Read0': statistics.mean(exec_lats_read0),
+        'p50_Read0': np.percentile(exec_lats_read0, 50),
+        'p90_Read0': np.percentile(exec_lats_read0, 90),
+        'p95_Read0': np.percentile(exec_lats_read0, 95),
+        'p99_Read0': np.percentile(exec_lats_read0, 99),
+        'p999_Read0': np.percentile(exec_lats_read0, 99.9),
+        'p9999_Read0': np.percentile(exec_lats_read0, 99.99),
+        'mean_Read1': statistics.mean(exec_lats_read1),
+        'p50_Read1': np.percentile(exec_lats_read1, 50),
+        'p90_Read1': np.percentile(exec_lats_read1, 90),
+        'p95_Read1': np.percentile(exec_lats_read1, 95),
+        'p99_Read1': np.percentile(exec_lats_read1, 99),
+        'p999_Read1': np.percentile(exec_lats_read1, 99.9),
+        'p9999_Read1': np.percentile(exec_lats_read1, 99.99),
+        'mean_Read2': statistics.mean(exec_lats_read2),
+        'p50_Read2': np.percentile(exec_lats_read2, 50),
+        'p90_Read2': np.percentile(exec_lats_read2, 90),
+        'p95_Read2': np.percentile(exec_lats_read2, 95),
+        'p99_Read2': np.percentile(exec_lats_read2, 99),
+        'p999_Read2': np.percentile(exec_lats_read2, 99.9),
+        'p9999_Read2': np.percentile(exec_lats_read2, 99.99),
+        'mean_Write0': statistics.mean(exec_lats_write0),
+        'p50_Write0': np.percentile(exec_lats_write0, 50),
+        'p90_Write0': np.percentile(exec_lats_write0, 90),
+        'p95_Write0': np.percentile(exec_lats_write0, 95),
+        'p99_Write0': np.percentile(exec_lats_write0, 99),
+        'p999_Write0': np.percentile(exec_lats_write0, 99.9),
+        'p9999_Write0': np.percentile(exec_lats_write0, 99.99),
+        'mean_Write1': statistics.mean(exec_lats_write1),
+        'p50_Write1': np.percentile(exec_lats_write1, 50),
+        'p90_Write1': np.percentile(exec_lats_write1, 90),
+        'p95_Write1': np.percentile(exec_lats_write1, 95),
+        'p99_Write1': np.percentile(exec_lats_write1, 99),
+        'p999_Write1': np.percentile(exec_lats_write1, 99.9),
+        'p9999_Write1': np.percentile(exec_lats_write1, 99.99),
+        'mean_Write2': statistics.mean(exec_lats_write2),
+        'p50_Write2': np.percentile(exec_lats_write2, 50),
+        'p90_Write2': np.percentile(exec_lats_write2, 90),
+        'p95_Write2': np.percentile(exec_lats_write2, 95),
+        'p99_Write2': np.percentile(exec_lats_write2, 99),
+        'p999_Write2': np.percentile(exec_lats_write2, 99.9),
+        'p9999_Write2': np.percentile(exec_lats_write2, 99.99),
         'avg_tput': statistics.mean(tputs),
-        'total_ops': len(exec_lats),
+        # 'total_ops': len(tputs),
     }
 
 if __name__ == '__main__':
@@ -67,4 +134,5 @@ if __name__ == '__main__':
     files are stored on the remote client machines. Logs the metrics to stdout
     in json format.
     """
-    print(json.dumps(get_metrics(path.expanduser('/Users/tsengle/GolandProjects/gus-epaxos/'))))
+    #print(json.dumps(get_metrics(path.expanduser('/Users/tsengle/GolandProjects/gus-epaxos/'))))
+    print(json.dumps(get_metrics(path.expanduser('/root/go/src/gus-epaxos/'))))
