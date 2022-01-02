@@ -42,13 +42,21 @@ type Replica struct {
 	currentSeq          int32
 	bookkeeping         []OpsBookkeeping
 	storage             map[state.Key]map[gusproto.Tag]state.Value
-	asyncStorage        map[state.Key]map[gusproto.Tag]state.Value
 	tmpStorage          map[state.Key]map[gusproto.Tag]state.Value
+	asyncStorage        []*AsyncObj
+	tmpAsyncStorage     []*AsyncObj
 	view                map[state.Key]map[gusproto.Tag][]bool //view[i][j][k] = Replica k has object i with tag j
 	activeRead          map[state.Key]bool
 	activeWrite         map[state.Key]bool
 	leadingOp           map[state.Key]int32
 	pendingReads        []*genericsmr.Propose
+}
+
+type AsyncObj struct {
+	key   state.Key
+	seq   int32
+	tag   gusproto.Tag
+	value state.Value
 }
 
 type OpsBookkeeping struct {
@@ -89,7 +97,8 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		make([]OpsBookkeeping, MAX_OP),
 		make(map[state.Key]map[gusproto.Tag]state.Value),
 		make(map[state.Key]map[gusproto.Tag]state.Value),
-		make(map[state.Key]map[gusproto.Tag]state.Value),
+		[]*AsyncObj{},
+		[]*AsyncObj{},
 		make(map[state.Key]map[gusproto.Tag][]bool),
 		make(map[state.Key]bool),
 		make(map[state.Key]bool),
@@ -191,9 +200,6 @@ func (r *Replica) run() {
 					if r.activeWrite[key] {
 						r.bookkeeping[r.currentSeq].isAsyncWrite = uint8(1)
 						r.bookkeeping[r.currentSeq].maxTime = r.currentTag[key].Timestamp
-
-						//TODO: put it in the async. storage
-
 					} else {
 						// Initialize storage space if key is not already existed
 						_, existence := r.storage[key]
@@ -257,9 +263,10 @@ func (r *Replica) run() {
 				}
 			} else {
 				if currentTag.LessThan(writeTag) {
-					//TODO: put it in asyncStorage
+					r.asyncStorage = append(r.asyncStorage, &AsyncObj{key, seq, writeTag, write.Command.V})
 				} else {
 					staleTag = 1
+					r.tmpAsyncStorage = append(r.tmpAsyncStorage, &AsyncObj{key, seq, writeTag, write.Command.V})
 				}
 			}
 			r.bcastAckWrite(write.Seq, write.WriterID, staleTag, r.currentTag[key])
@@ -321,7 +328,7 @@ func (r *Replica) run() {
 							r.ReplyProposeTS(propreply, r.bookkeeping[seq].proposal.Reply)
 							r.bookkeeping[seq].complete = true
 						}
-						// TODO: async storage
+						r.asyncStorage = append(r.asyncStorage, &AsyncObj{key, seq, r.currentTag[key], r.bookkeeping[seq].valueToWrite})
 					} else {
 						// There is a staleTag = TRUE
 						r.bcastCommitWrite(seq, ackWrite.WriterID, r.bookkeeping[seq].maxTime+1, key, r.bookkeeping[seq].isAsyncWrite)
@@ -335,6 +342,7 @@ func (r *Replica) run() {
 		case commitWriteS := <-r.commitWriteChan:
 			commitWrite := commitWriteS.(*gusproto.CommitWrite)
 			commitTag := gusproto.Tag{commitWrite.CurrentTime, commitWrite.WriterID}
+			seq := commitWrite.Seq
 			key := commitWrite.Key
 			isAsyncWrite := commitWrite.IsAsync
 
@@ -349,12 +357,22 @@ func (r *Replica) run() {
 					r.storage[key] = make(map[gusproto.Tag]state.Value)
 				}
 				// Move value from tmpStorage to Storage
-				r.storage[key][r.currentTag[key]] = r.tmpStorage[key][r.currentTag[key]]
-				delete(r.tmpStorage[key], r.currentTag[key])
-				r.initializeView(key, r.currentTag[key])
-				r.view[key][r.currentTag[key]][r.Id] = true
+				r.storage[key][commitTag] = r.tmpStorage[key][r.currentTag[key]]
+				delete(r.tmpStorage[key], commitTag)
+				r.initializeView(key, commitTag)
+				r.view[key][commitTag][r.Id] = true
 			} else {
-				//TODO: async storage
+				//Find stuff from tmpAsyncStorage
+				for i, obj := range r.tmpAsyncStorage {
+					if obj.seq == seq && obj.tag.WriterID == commitWrite.WriterID {
+						value := obj.value
+						r.asyncStorage = append(r.asyncStorage, &AsyncObj{key, seq, commitTag, value})
+						// remove this object from tmpAsyncStorage
+						r.tmpAsyncStorage[i] = r.tmpAsyncStorage[len(r.tmpAsyncStorage)-1]
+						r.tmpAsyncStorage = r.tmpAsyncStorage[:len(r.tmpAsyncStorage)-1]
+						break
+					}
+				}
 			}
 			r.bcastAckCommit(commitWrite.Seq, commitWrite.WriterID)
 			break
@@ -393,7 +411,7 @@ func (r *Replica) run() {
 					r.ReplyProposeTS(propreply, r.bookkeeping[seq].proposal.Reply)
 				}
 				r.bookkeeping[seq].complete = true
-				// TODO: async storage
+				r.asyncStorage = append(r.asyncStorage, &AsyncObj{key, seq, r.currentTag[key], r.bookkeeping[seq].valueToWrite})
 			}
 			break
 
@@ -521,6 +539,7 @@ func (r *Replica) reset(seq int32) {
 			r.ReplyProposeTS(propreply, proposal.Reply)
 			//TODO: add this proposal to the booking for debugging/logging purpose
 		}
+		r.pendingReads = []*genericsmr.Propose{}
 	}
 }
 
