@@ -23,7 +23,7 @@ const DS = 5
 const ADAPT_TIME_SEC = 10
 
 const MAX_BATCH = 1
-const CLOCK = 1000*10
+const CLOCK = 5 * 1e6
 
 const COMMIT_GRACE_PERIOD = 10 * 1e9 //10 seconds
 
