@@ -35,6 +35,9 @@ var poissonAvg = flag.Int("poisson", -1, "The average number of microseconds bet
 var percentWrites = flag.Float64("writes", 1, "A float between 0 and 1 that corresponds to the percentage of requests that should be writes. The remainder will be reads.")
 var blindWrites = flag.Bool("blindwrites", false, "True if writes don't need to execute before clients receive responses.")
 var singleClusterTest = flag.Bool("singleClusterTest", true, "True if clients run on a VM in a single cluster")
+var rampDown *int = flag.Int("rampDown", 15, "Length of the cool-down period after statistics are measured (in seconds).")
+var rampUp *int = flag.Int("rampUp", 15, "Length of the warm-up period before statistics are measured (in seconds).")
+var timeout *int = flag.Int("timeout", 180, "Length of the timeout used when running the client")
 
 // Information about the latency of an operation
 type response struct {
@@ -133,7 +136,7 @@ func main() {
 	}
 
 	if *singleClusterTest {
-		printerMultipeFile(readings, len(rlReply.ReplicaList))
+		printerMultipeFile(readings, len(rlReply.ReplicaList), rampDown, rampUp, timeout)
 	} else {
 		printer(readings)
 	}
@@ -258,6 +261,7 @@ func printer(readings chan *response) {
 	}
 	//latFile.WriteString("# time (ns), latency, commit latency\n")
 
+
 	startTime := time.Now()
 
 	for {
@@ -301,7 +305,7 @@ func printer(readings chan *response) {
 	}
 }
 
-func printerMultipeFile(readings chan *response, numLeader int) {
+func printerMultipeFile(readings chan *response, numLeader int, rampDown, rampUp, timeout *int) {
 	lattputFile, err := os.Create("lattput.txt")
 	if err != nil {
 		log.Println("Error creating lattput file", err)
@@ -329,6 +333,7 @@ func printerMultipeFile(readings chan *response, numLeader int) {
 	}
 
 	startTime := time.Now()
+	experimentStart := startTime
 
 	for {
 		time.Sleep(time.Second)
@@ -339,16 +344,19 @@ func printerMultipeFile(readings chan *response, numLeader int) {
 		endTime := time.Now() // Set to current time in case there are no readings
 		for i := 0; i < count; i++ {
 			resp := <-readings
+			currentRuntime := time.Now().Sub(experimentStart)
 
-			// Log all to latency file
-			if resp.isRead {
-				latFileRead[resp.replicaID].WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
-			} else {
-				latFileWrite[resp.replicaID].WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+			// Log all to latency file if they are not within the ramp up or ramp down period.
+			if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout - *rampDown {
+				if resp.isRead {
+					latFileRead[resp.replicaID].WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+				} else {
+					latFileWrite[resp.replicaID].WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+				}
+				sum += resp.rtt
+				commitSum += resp.commitLatency
+				endTime = resp.receivedAt
 			}
-			sum += resp.rtt
-			commitSum += resp.commitLatency
-			endTime = resp.receivedAt
 		}
 
 		var avg float64
