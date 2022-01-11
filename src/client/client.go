@@ -105,6 +105,7 @@ func main() {
 	readings := make(chan *response, 100000)
 
 	//startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
+	experimentStart := time.Now()
 
 	for i := 0; i < *T; i++ {
 
@@ -136,7 +137,7 @@ func main() {
 	}
 
 	if *singleClusterTest {
-		printerMultipeFile(readings, len(rlReply.ReplicaList), rampDown, rampUp, timeout)
+		printerMultipeFile(readings, len(rlReply.ReplicaList), experimentStart, rampDown, rampUp, timeout)
 	} else {
 		printer(readings)
 	}
@@ -305,7 +306,7 @@ func printer(readings chan *response) {
 	}
 }
 
-func printerMultipeFile(readings chan *response, numLeader int, rampDown, rampUp, timeout *int) {
+func printerMultipeFile(readings chan *response, numLeader int, experimentStart time.Time, rampDown, rampUp, timeout *int) {
 	lattputFile, err := os.Create("lattput.txt")
 	if err != nil {
 		log.Println("Error creating lattput file", err)
@@ -333,7 +334,6 @@ func printerMultipeFile(readings chan *response, numLeader int, rampDown, rampUp
 	}
 
 	startTime := time.Now()
-	experimentStart := startTime
 
 	for {
 		time.Sleep(time.Second)
