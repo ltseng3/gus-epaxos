@@ -47,7 +47,7 @@
   },
   "cloudlab_user": "zhouaea",
   "experiment_name": "test",
-  "project_name": "HyflowTM",
+  "project_name": "HyflowTM-PG0",
   "host_format_str": "%s.%s.%s.utah.cloudlab.us",
   "emulate_wan_latency": true,
   "max_bandwidth": "1gibps"
