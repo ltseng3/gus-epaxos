@@ -2,6 +2,9 @@ import subprocess
 import concurrent
 import sys
 
+# Note: You may see the error message "RTNETLINK answers: No such file or directory" while this script is running. This
+# occurs because we always try to delete any existing tc profiles before configuring our own. If there is no preexisting
+# tc profile, then the message will appear, which is fine and will not affect the results of the scripts.
 
 def setup_delays(config, executor):
     # Note: trading off performance so I can have simplicity. each helper function takes a copy of the config
@@ -42,9 +45,6 @@ def get_server_name_to_ip_map(config):
     for server_name in config['server_names']:
         ip = get_ip_for_server_name_from_remote_machine(server_name, config['cloudlab_user'], get_server_host(config, config['server_names'][0]))
         name_to_ip[server_name] = ip
-
-    ip = get_ip_for_server_name_from_remote_machine('client', config['cloudlab_user'], get_server_host(config, config['server_names'][0]))
-    name_to_ip['client'] = ip
 
     return name_to_ip
 
