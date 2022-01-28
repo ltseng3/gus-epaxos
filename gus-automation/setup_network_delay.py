@@ -60,7 +60,7 @@ def get_ip_to_delay(config, name_to_ip, server_name):
     ip_to_delay = {}
     name_to_delay = config['server_ping_latencies'][server_name]
 
-    for name, ip in name_to_ip:
+    for name, ip in name_to_ip.items():
         if name not in name_to_delay:
             print("ERROR: in the config file, server_names does not match with server_ping_latencies, "
                   "specifically key %s in server_ping_latencies" % server_name)
