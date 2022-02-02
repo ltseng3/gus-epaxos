@@ -1,4 +1,4 @@
-- Essential Parameters (used for ssh communication from control machine to remote machines)
+- Communication Parameters (used for ssh communication from control machine to remote machines)
   - server_names: names of servers in cloudlab
   - cloudlab_user: the username of the cloudlab account connecting to the cluster
   - experiment_name: the name of the cloudlab experiment
