@@ -2,7 +2,7 @@ import subprocess
 
 
 def copy_path_to_remote_host(local_path, remote_url, remote_path, exclude_paths=[]):
-    args = ["rsync", "-e", "ssh", local_path, "%s:%s" % (remote_url, remote_path)]
+    args = ["rsync", "-r", "-e", "ssh", local_path, "%s:%s" % (remote_url, remote_path)]
     if exclude_paths is not None:
         for i in range(len(exclude_paths)):
             args.append('--exclude')

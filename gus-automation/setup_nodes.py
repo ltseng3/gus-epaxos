@@ -76,7 +76,7 @@ def copy_binaries_to_machines(config, executor):
     print("copying binaries")
 
     control_binary_directory = os.path.join(config['control_src_directory'], 'bin')
-    remote_binary_directory = config['remote_bin_directory']
+    remote_binary_directory = config['remote_bin_directory'] + '/' # add "/" so rsync doesn't create a second bin folder
 
     futures = []
     for server_name in config['server_names']:
@@ -89,7 +89,3 @@ def copy_binaries_to_machines(config, executor):
                                    control_binary_directory, client_url, remote_binary_directory))
 
     concurrent.futures.wait(futures)
-
-def copy_binaries_to_machine(config, machine):
-    machine_url = get_machine_url(config, machine_name)
-    run_remote_command_sync('mkdir -p %s' % remote_out_directory, machine_url)
