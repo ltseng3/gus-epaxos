@@ -7,6 +7,11 @@
   "oregon",
   "japan"
   ],
+  "cloudlab_user": "zhouaea",
+  "experiment_name": "test",
+  "project_name": "HyflowTM-PG0",
+  "host_format_str": "%s.%s.%s.utah.cloudlab.us",
+  "emulate_wan_latency": true,
   "server_ping_latencies":
   {
     "california": {
@@ -45,10 +50,10 @@
       "virginia": 0
     }
   },
-  "cloudlab_user": "zhouaea",
-  "experiment_name": "test",
-  "project_name": "HyflowTM-PG0",
-  "host_format_str": "%s.%s.%s.utah.cloudlab.us",
-  "emulate_wan_latency": true,
-  "max_bandwidth": "1gibps"
+  "max_bandwidth": "1gibps",
+  "control_src_directory": "/root/go/src/gus-epaxos",
+  "base_control_experiment_directory": "/root/go/src/gus-epaxos/results",
+  "control_bin_directory": "/root/go/src/gus-epaxos/results/bin",
+  "base_remote_experiment_directory": "~/results",
+  "remote_bin_directory": "~/bin"
 }
