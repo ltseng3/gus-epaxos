@@ -75,8 +75,9 @@ def prepare_remote_exp_bin_directory(config, machine_name, remote_out_directory,
 def copy_binaries_to_machines(config, executor):
     print("copying binaries")
 
-    control_binary_directory = os.path.join(config['control_src_directory'], 'bin')
-    remote_binary_directory = config['remote_bin_directory'] + '/' # add "/" so rsync doesn't create a second bin folder
+    # Note: must add "/" to local directory name so rsync doesn't create a second bin folder
+    control_binary_directory = os.path.join(config['control_src_directory'], 'bin/')
+    remote_binary_directory = config['remote_bin_directory']
 
     futures = []
     for server_name in config['server_names']:
