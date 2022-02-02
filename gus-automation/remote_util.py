@@ -17,7 +17,7 @@ def get_machine_url(config, server_name):
 
 
 def run_remote_command_sync(command, remote_url):
-    print("contacting %s with command %s", remote_url, command)
+    print("contacting %s with command %s" % (remote_url, command))
     return subprocess.run(ssh_args(command, remote_url),
                           stdout=subprocess.PIPE, universal_newlines=True).stdout
 
