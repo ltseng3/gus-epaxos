@@ -9,7 +9,7 @@ from remote_util import *
 def setup_nodes(config, executor):
     make_binaries(config)
     exp_directory = prepare_local_exp_directory(config)
-    prepare_remote_exp_directories(config, exp_directory, executor)
+    prepare_remote_exp_bin_directories(config, exp_directory, executor)
     copy_binaries_to_machines(config, executor)
 
 
@@ -44,26 +44,32 @@ def get_timestamped_exp_dir(config):
     return os.path.join(config['base_control_experiment_directory'], now_string)
 
 
-def prepare_remote_exp_directories(config, local_exp_directory, executor):
+def prepare_remote_exp_bin_directories(config, local_exp_directory, executor):
     print("preparing remote directories")
 
     # Prepare remote out directory with timestamped experiment directory folder
     remote_directory = os.path.join(config['base_remote_experiment_directory'], os.path.basename(local_exp_directory))
     remote_out_directory = os.path.join(remote_directory, 'out')
 
+    # Prepare remote binary directory
+    remote_binary_directory = config['remote_bin_directory']
+
     futures = []
     for server_name in config['server_names']:
-        futures.append(executor.submit(prepare_remote_exp_directory, config, server_name, remote_out_directory))
+        futures.append(executor.submit(prepare_remote_exp_bin_directory, config, server_name,
+                                       remote_out_directory, remote_binary_directory))
 
-    futures.append(executor.submit(prepare_remote_exp_directory, config, 'client', local_exp_directory, remote_out_directory))
+    futures.append(executor.submit(prepare_remote_exp_bin_directory, config, 'client',
+                                   remote_out_directory, remote_binary_directory))
 
     concurrent.futures.wait(futures)
     return remote_directory
 
 
-def prepare_remote_exp_directory(config, machine_name, remote_out_directory):
+def prepare_remote_exp_bin_directory(config, machine_name, remote_out_directory, remote_bin_directory):
     machine_url = get_machine_url(config, machine_name)
     run_remote_command_sync('mkdir -p %s' % remote_out_directory, machine_url)
+    run_remote_command_sync('mkdir -p %s' % remote_bin_directory, machine_url)
 
 
 def copy_binaries_to_machines(config, executor):
@@ -83,3 +89,7 @@ def copy_binaries_to_machines(config, executor):
                                    control_binary_directory, client_url, remote_binary_directory))
 
     concurrent.futures.wait(futures)
+
+def copy_binaries_to_machine(config, machine):
+    machine_url = get_machine_url(config, machine_name)
+    run_remote_command_sync('mkdir -p %s' % remote_out_directory, machine_url)
