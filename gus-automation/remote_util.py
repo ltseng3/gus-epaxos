@@ -1,11 +1,6 @@
 import subprocess
 
 
-def get_machine_url(config, server_name):
-    return "%s@%s" % (config['cloudlab_user'],
-                      (config['host_format_str'] % (server_name, config['experiment_name'], config['project_name'])))
-
-
 def copy_path_to_remote_host(local_path, remote_url, remote_path, exclude_paths=[]):
     print('%s:%s' % (remote_url, remote_path))
     args = ["rsync", "-r", "-e", "ssh", local_path, "%s:%s" % (remote_url, remote_path)]
@@ -16,8 +11,13 @@ def copy_path_to_remote_host(local_path, remote_url, remote_path, exclude_paths=
     subprocess.call(args)
 
 
+def get_machine_url(config, server_name):
+    return "%s@%s" % (config['cloudlab_user'],
+                      (config['host_format_str'] % (server_name, config['experiment_name'], config['project_name'])))
+
+
 def run_remote_command_sync(command, remote_url):
-    print(command)
+    print("contacting %s with command %s", remote_url, command)
     return subprocess.run(ssh_args(command, remote_url),
                           stdout=subprocess.PIPE, universal_newlines=True).stdout
 

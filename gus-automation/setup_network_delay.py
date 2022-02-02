@@ -43,13 +43,14 @@ def get_server_name_to_ip_map(config):
     name_to_ip = {}
 
     for server_name in config['server_names']:
-        ip = get_ip_for_server_name_from_remote_machine(server_name, remote_util.get_machine_url(config, config['server_names'][0]))
+        ip = get_ip_for_server_name_from_remote_machine(server_name,
+                                                        remote_util.get_machine_url(config, config['server_names'][0]))
         name_to_ip[server_name] = ip
 
     return name_to_ip
 
 def get_ip_for_server_name_from_remote_machine(server_name, remote_url):
-    return remote_util.run_remote_command_sync('getent urls %s | awk \'{ print $1 }\'' % server_name, remote_url).rstrip()
+    return remote_util.run_remote_command_sync('getent hosts %s | awk \'{ print $1 }\'' % server_name, remote_url).rstrip()
 
 
 def get_ip_to_delay(config, name_to_ip, server_name):
