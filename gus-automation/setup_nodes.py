@@ -10,7 +10,7 @@ def setup_nodes(config, executor):
     make_binaries(config)
     exp_directory = prepare_local_exp_directory(config)
     prepare_remote_exp_directories(config, exp_directory, executor)
-    copy_binaries_to_machines(config)
+    copy_binaries_to_machines(config, executor)
 
 
 def make_binaries(config):
