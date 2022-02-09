@@ -1,3 +1,8 @@
+# Control binaries are located in <control_src_directory>/bin.
+# Remote binaries are stored in <remote_bin_directory>
+# Control experiment directories are located in <base_control_experiment_directory>/<timestamp of experiment>
+# Remote experiment directories are located in <base_remote_experiment_directory>/<timestamp of experiment>
+
 import concurrent
 import os
 import subprocess
@@ -8,9 +13,10 @@ from remote_util import *
 
 def setup_nodes(config, executor):
     make_binaries(config)
-    exp_directory = prepare_local_exp_directory(config)
-    prepare_remote_exp_bin_directories(config, exp_directory, executor)
+    timestamp = prepare_control_exp_directory(config)
+    prepare_remote_exp_and_bin_directories(config, timestamp, executor)
     copy_binaries_to_machines(config, executor)
+    return timestamp
 
 
 def make_binaries(config):
@@ -28,13 +34,13 @@ def make_binaries(config):
     subprocess.call(["go", "install", "client"], cwd=control_src_directory, env=e)
 
 
-def prepare_local_exp_directory(config, config_file=None):
-    print("making local experiment directory")
+def prepare_control_exp_directory(config, config_file=None):
+    print("making control experiment directory")
 
-    exp_directory = get_timestamped_exp_dir(config)
-    os.makedirs(exp_directory)
+    timestamped_exp_directory = get_timestamped_exp_dir(config)
+    os.makedirs(timestamped_exp_directory)
     # shutil.copy(config_file, os.path.join(exp_directory, os.path.basename(config_file)))
-    return exp_directory
+    return os.path.basename(timestamped_exp_directory)
 
 
 # TODO include type of experiment (latency, throughput, etc.) here
@@ -44,29 +50,28 @@ def get_timestamped_exp_dir(config):
     return os.path.join(config['base_control_experiment_directory'], now_string)
 
 
-def prepare_remote_exp_bin_directories(config, local_exp_directory, executor):
+def prepare_remote_exp_and_bin_directories(config, timestamp, executor):
     print("preparing remote directories")
 
     # Prepare remote out directory with timestamped experiment directory folder
-    remote_directory = os.path.join(config['base_remote_experiment_directory'], os.path.basename(local_exp_directory))
-    remote_out_directory = os.path.join(remote_directory, 'out')
+    remote_directory = os.path.join(config['base_remote_experiment_directory'], timestamp)
 
     # Prepare remote binary directory
     remote_binary_directory = config['remote_bin_directory']
 
     futures = []
     for server_name in config['server_names']:
-        futures.append(executor.submit(prepare_remote_exp_bin_directory, config, server_name,
-                                       remote_out_directory, remote_binary_directory))
+        futures.append(executor.submit(prepare_remote_exp_and_bin_directory, config, server_name,
+                                       remote_directory, remote_binary_directory))
 
-    futures.append(executor.submit(prepare_remote_exp_bin_directory, config, 'client',
-                                   remote_out_directory, remote_binary_directory))
+    futures.append(executor.submit(prepare_remote_exp_and_bin_directory, config, 'client',
+                                   remote_directory, remote_binary_directory))
 
     concurrent.futures.wait(futures)
     return remote_directory
 
 
-def prepare_remote_exp_bin_directory(config, machine_name, remote_out_directory, remote_bin_directory):
+def prepare_remote_exp_and_bin_directory(config, machine_name, remote_out_directory, remote_bin_directory):
     machine_url = get_machine_url(config, machine_name)
     run_remote_command_sync('mkdir -p %s' % remote_out_directory, machine_url)
     run_remote_command_sync('mkdir -p %s' % remote_bin_directory, machine_url)
@@ -75,18 +80,17 @@ def prepare_remote_exp_bin_directory(config, machine_name, remote_out_directory,
 def copy_binaries_to_machines(config, executor):
     print("copying binaries")
 
-    # Note: must add "/" to local directory name so rsync doesn't create a second bin folder
-    control_binary_directory = os.path.join(config['control_src_directory'], 'bin/')
+    control_binary_directory = os.path.join(config['control_src_directory'], 'bin')
     remote_binary_directory = config['remote_bin_directory']
 
     futures = []
     for server_name in config['server_names']:
         server_url = get_machine_url(config, server_name)
-        futures.append(executor.submit(copy_path_to_remote_host,
+        futures.append(executor.submit(copy_local_directory_to_remote,
                                        control_binary_directory, server_url, remote_binary_directory))
 
     client_url = get_machine_url(config, 'client')
-    futures.append(executor.submit(copy_path_to_remote_host,
+    futures.append(executor.submit(copy_local_directory_to_remote,
                                    control_binary_directory, client_url, remote_binary_directory))
 
     concurrent.futures.wait(futures)
