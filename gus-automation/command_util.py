@@ -56,7 +56,6 @@ def get_client_cmd(config, timestamp, server_names_to_ips):
     master_addr = server_names_to_ips[config['server_names'][0]]
 
     client_command = ' '.join([str(x) for x in [
-        "cd", exp_directory, "&&", # run binary in the experiment directory
         path_to_client_bin,
         '-masterAddr', master_addr,
         '-writes', config['write_percentage'],
@@ -67,6 +66,9 @@ def get_client_cmd(config, timestamp, server_names_to_ips):
     # Only run client for 3 minutes.
     timeout = "180s"
     client_command = "timeout %s %s" % (timeout, client_command)
+
+    # Run client in the experiment directory.
+    client_command = "cd %s && %s" % (exp_directory, client_command)
 
     stdout_file = os.path.join(exp_directory, 'client-stdout.log')
     stderr_file = os.path.join(exp_directory, 'client-stderr.log')
