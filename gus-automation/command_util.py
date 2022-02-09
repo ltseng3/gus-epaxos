@@ -30,8 +30,8 @@ def get_server_cmd(config, timestamp, server_names_to_ips, server_name):
     ]])
     server_command += get_replication_protocol_args(config['replication_protocol'])
 
-    stdout_file = os.path.join(exp_directory, 'server-%d-stdout.log' % server_name)
-    stderr_file = os.path.join(exp_directory, 'server-%d-stderr.log' % server_name)
+    stdout_file = os.path.join(exp_directory, 'server-%s-stdout.log' % server_name)
+    stderr_file = os.path.join(exp_directory, 'server-%s-stderr.log' % server_name)
 
     server_command = tcsh_redirect_output_to_files(server_command,
                                                     stdout_file, stderr_file)
