@@ -57,7 +57,7 @@ def get_client_cmd(config, timestamp, server_names_to_ips):
 
     client_command = ' '.join([str(x) for x in [
         path_to_client_bin,
-        '-masterAddr', master_addr,
+        '-maddr', master_addr,
         '-writes', config['write_percentage'],
         '-c', config['conflict_percentage'],
         '-T', int(config['clients_per_replica']) * len(config['server_names'])
