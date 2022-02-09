@@ -14,7 +14,7 @@ def setup_delays(config, executor):
     # all of the copies of the config file.
     futures = []
 
-    server_names_to_ips = get_server_name_to_ip_map(config)
+    server_names_to_ips = get_server_name_to_internal_ip_map(config)
     print("server_names_to_ips:", server_names_to_ips)
 
     for server_name in config['server_names']:
@@ -37,7 +37,7 @@ def setup_delays(config, executor):
     concurrent.futures.wait(futures)
 
 
-def get_server_name_to_ip_map(config):
+def get_server_name_to_internal_ip_map(config):
     # We get ips through the first server in the server names list just in case the control machine is not in the
     # cloudlab cluster.
     name_to_ip = {}

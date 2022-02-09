@@ -5,14 +5,14 @@ import time
 
 from command_util import *
 from remote_util import *
-from setup_network_delay import get_server_name_to_ip_map
+from setup_network_delay import get_server_name_to_internal_ip_map
 
 
 def run_experiment(config, timestamp, executor):
     master_thread = start_master(config, timestamp)
-    server_names_to_ips = get_server_name_to_ip_map(config)
-    server_threads = start_servers(config, timestamp, server_names_to_ips)
-    client_thread = start_clients(config, timestamp, server_names_to_ips)
+    server_names_to_internal_ips = get_server_name_to_internal_ip_map(config)
+    server_threads = start_servers(config, timestamp, server_names_to_internal_ips)
+    client_thread = start_clients(config, timestamp, server_names_to_internal_ips)
 
     client_thread.wait()
     for server_thread in server_threads:
@@ -30,21 +30,21 @@ def start_master(config, timestamp):
 
     return run_remote_command_async(master_command, master_url)
 
-def start_servers(config, timestamp, server_names_to_ips):
+def start_servers(config, timestamp, server_names_to_internal_ips):
     server_threads = []
 
     for server_name in config['server_names']:
         server_url = get_machine_url(config, server_name)
-        server_command = get_server_cmd(config, timestamp, server_names_to_ips, server_name)
+        server_command = get_server_cmd(config, timestamp, server_names_to_internal_ips, server_name)
         server_threads.append(run_remote_command_async(server_command, server_url))
 
     # I assume there is no way we can detect when the servers are initialized.
     time.sleep(2)
     return server_threads
 
-def start_clients(config, timestamp, server_names_to_ips):
+def start_clients(config, timestamp, server_names_to_internal_ips):
     client_url = get_machine_url(config, 'client')
-    client_command = get_client_cmd(config, timestamp, server_names_to_ips)
+    client_command = get_client_cmd(config, timestamp, server_names_to_internal_ips)
     return run_remote_command_async(client_command, client_url)
 
 def kill_machines(config, executor):

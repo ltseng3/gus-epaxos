@@ -56,6 +56,7 @@
   "control_bin_directory": "/root/go/src/gus-epaxos/results/bin",
   "base_remote_experiment_directory": "~/results",
   "remote_bin_directory": "~/bin",
+  "replication_protocol": "gus",
   "experiment_length": 180,
   "write_percentage": 0.055,
   "conflict_percentage": 2,

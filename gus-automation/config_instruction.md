@@ -14,6 +14,7 @@
   - base_remote_experiment_directory: path to a directory on the remote machines where experiment result subfolders will be stored
   - remote_bin_directory: path to a directory on remote machines where server/client binaries will be stored
 - Replication Protocol Parameters
+  - replication_protocol: gus, gryff, or epaxos
 - Client Parameters
   - experiment_length: in seconds
   - write_percentage: Floating point number between 0 and 1
