@@ -67,7 +67,7 @@ def collect_exp_data(config, timestamp, executor):
     # Master machine data is in the logs of the first server.
     for server_name in config['server_names']:
         server_url = get_machine_url(config, server_name)
-        download_futures.append(executor.submit(copy_remote_directory_to_local, os.path.join(control_exp_directory, 'server-%d' % server_name), server_url, remote_exp_directory))
+        download_futures.append(executor.submit(copy_remote_directory_to_local, os.path.join(control_exp_directory, 'server-%s' % server_name), server_url, remote_exp_directory))
 
     client_url = get_machine_url(config, 'client')
     path_to_client_data = os.path.join(control_exp_directory, 'client')
