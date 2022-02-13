@@ -39,6 +39,7 @@ var blindWrites = flag.Bool("blindwrites", false, "True if writes don't need to 
 var singleClusterTest = flag.Bool("singleClusterTest", true, "True if clients run on a VM in a single cluster")
 var rampDown *int = flag.Int("rampDown", 15, "Length of the cool-down period after statistics are measured (in seconds).")
 var rampUp *int = flag.Int("rampUp", 15, "Length of the warm-up period before statistics are measured (in seconds).")
+var replProtocol *string = flag.String("replProtocol", "gus", "Replication protocol used by clients and servers.")
 var timeout *int = flag.Int("timeout", 180, "Length of the timeout used when running the client")
 
 // Gryff parameters
@@ -46,10 +47,9 @@ var clientId *int = flag.Int("clientId", 0, "Client identifier for use in replic
 var debug *bool = flag.Bool("debug", false, "Enable debug output.")
 var defaultReplicaOrder *bool = flag.Bool("defaultReplicaOrder", false, "Use default replica order for Gryff coordination.")
 var epaxosMode *bool = flag.Bool("epaxosMode", false, "Run Gryff with same message pattern as EPaxos.")
-var numServers *int = flag.Int("n", 5, "Number of servers. Will be used only if replication protocol is 'gryff' , otherwise other protocols will automatically calculate this.")
+var numServers *int = flag.Int("n", 5, "Number of servers. Will be used only if replication protocol is 'gryff', otherwise other protocols will automatically calculate this.")
 var proxy *bool = flag.Bool("proxy", false, "Proxy writes at local replica.")
 var regular *bool = flag.Bool("regular", false, "Perform operations with regular consistency. (only for applicable protocols)")
-var replProtocol *string = flag.String("replProtocol", "gryff", "Replication protocol used by clients and servers.")
 var sequential *bool = flag.Bool("sequential", true, "Perform operations with sequential consistency (only for applicable protocols).")
 var statsFile *string = flag.String("statsFile", "", "Export location for collected statistics. If empty, no file is written.")
 var thrifty *bool = flag.Bool("thrifty", false, "Only initially send messages to nearest quorum of replicas.")
