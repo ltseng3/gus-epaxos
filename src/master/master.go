@@ -119,6 +119,7 @@ func (master *Master) Register(args *masterproto.RegisterArgs, reply *masterprot
 	nlen := len(master.nodeList)
 	index := nlen
 
+	log.Printf("Replica registering with addr %s and port %d\n", args.Addr, args.Port)
 	addrPort := fmt.Sprintf("%s:%d", args.Addr, args.Port)
 
 	for i, ap := range master.nodeList {
