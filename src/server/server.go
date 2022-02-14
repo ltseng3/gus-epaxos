@@ -114,7 +114,7 @@ func main() {
 				*forceWritePeriod, *broadcastOptimizationEnabled)
 		rpc.Register(rep)
 		//go catchKill(rep, interrupt)
-	} else *doEpaxos {
+	} else if *doEpaxos {
 		log.Println("Starting Egalitarian Paxos replica...")
 		rep := epaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply,
 				*beacon, *durable, *statsFile, *noConflicts)
