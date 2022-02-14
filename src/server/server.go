@@ -122,8 +122,7 @@ func main() {
 		go catchKill(rep, interrupt)
 	} else {
 		log.Println("Starting classic Paxos replica...")
-		rep := paxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply,
-			*beacon, *durable)
+		rep := paxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable)
 		rpc.Register(rep)
 		go catchKill(rep, interrupt)
 	}
