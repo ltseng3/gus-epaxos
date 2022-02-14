@@ -117,13 +117,13 @@ func main() {
 	} else if *doEpaxos {
 		log.Println("Starting Egalitarian Paxos replica...")
 		rep := epaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply,
-			*beacon, *durable, *statsFile, *noConflicts)
+			*beacon, *durable)
 		rpc.Register(rep)
 		go catchKill(rep, interrupt)
 	} else {
 		log.Println("Starting classic Paxos replica...")
 		rep := paxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply,
-			*beacon, *durable, *statsFile)
+			*beacon, *durable)
 		rpc.Register(rep)
 		go catchKill(rep, interrupt)
 	}
