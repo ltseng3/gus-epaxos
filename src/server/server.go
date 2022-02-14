@@ -1,10 +1,12 @@
 package main
 
 import (
+	"dlog"
 	"epaxos"
 	"fastpaxos"
 	"flag"
 	"fmt"
+	"gryff"
 	"gus"
 	"log"
 	"net/rpc"
@@ -13,8 +15,6 @@ import (
 	"paxos"
 	"runtime"
 	"runtime/pprof"
-	"gryff"
-	"dlog"
 	"serverlib"
 )
 
@@ -23,9 +23,9 @@ var portnum *int = flag.Int("port", 7070, "Port # to listen on. Defaults to 7070
 var masterAddr *string = flag.String("maddr", "", "Master address. Defaults to localhost.")
 var masterPort *int = flag.Int("mport", 7087, "Master port.  Defaults to 7087.")
 var myAddr *string = flag.String("addr", "", "Server address (this machine). Defaults to localhost.")
-var doGus *bool = flag.Bool("gus", true," Use Gus as the replication protocol. Defaults to true.")
+var doGus *bool = flag.Bool("gus", true, " Use Gus as the replication protocol. Defaults to true.")
 var doFastpaxos *bool = flag.Bool("fastpaxos", false, "Use Fast Paxos as the replication protocol. Defaults to false.")
-var doGryff *bool = flag.Bool("gryff", false," Use Gryff as the replication protocol. Defaults to false.")
+var doGryff *bool = flag.Bool("gryff", false, " Use Gryff as the replication protocol. Defaults to false.")
 var doMencius *bool = flag.Bool("mencius", false, "Use Mencius as the replication protocol. Defaults to false.")
 var doGpaxos *bool = flag.Bool("gpaxos", false, "Use Generalized Paxos as the replication protocol. Defaults to false.")
 var doEpaxos *bool = flag.Bool("epaxos", false, "Use EPaxos as the replication protocol. Defaults to false.")
@@ -72,12 +72,12 @@ func main() {
 	log.Printf("Server starting on port %d\n", *portnum)
 
 	replicaId, nodeList := serverlib.RegisterWithMaster(*myAddr, *portnum, fmt.Sprintf("%s:%d", *masterAddr,
-			*masterPort))
+		*masterPort))
 
 	log.Printf("Got node list from master: [")
 	for i := 0; i < len(nodeList); i++ {
 		log.Printf("%s", nodeList[i])
-		if i != len(nodeList) - 1 {
+		if i != len(nodeList)-1 {
 			log.Printf(", ")
 		}
 	}
@@ -94,36 +94,36 @@ func main() {
 		log.Println("Starting Fast Paxos replica...")
 		rep := fastpaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable)
 		rpc.Register(rep)
-	else if *doGryff {
+	} else if *doGryff {
 		log.Println("Starting Gryff replica...")
 		var rmwHandlerType gryff.RMWHandlerType
 		switch *rmwHandler {
-			case "sdp":
-				rmwHandlerType = gryff.SDP
-				break
-			case "epaxos":
-				rmwHandlerType = gryff.EPAXOS
-				break
-			default:
-				log.Fatal("Unknown consensus protocol: ", *rmwHandler)
-				break
+		case "sdp":
+			rmwHandlerType = gryff.SDP
+			break
+		case "epaxos":
+			rmwHandlerType = gryff.EPAXOS
+			break
+		default:
+			log.Fatal("Unknown consensus protocol: ", *rmwHandler)
+			break
 		}
 		rep := gryff.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply,
-				*beacon, *durable, *statsFile, *regular, *proxy, *noConflicts,
-				*epaxosMode, rmwHandlerType, *shortcircuitTime, *fastOverwriteTime,
-				*forceWritePeriod, *broadcastOptimizationEnabled)
+			*beacon, *durable, *statsFile, *regular, *proxy, *noConflicts,
+			*epaxosMode, rmwHandlerType, *shortcircuitTime, *fastOverwriteTime,
+			*forceWritePeriod, *broadcastOptimizationEnabled)
 		rpc.Register(rep)
 		//go catchKill(rep, interrupt)
 	} else if *doEpaxos {
 		log.Println("Starting Egalitarian Paxos replica...")
 		rep := epaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply,
-				*beacon, *durable, *statsFile, *noConflicts)
+			*beacon, *durable, *statsFile, *noConflicts)
 		rpc.Register(rep)
 		go catchKill(rep, interrupt)
 	} else {
 		log.Println("Starting classic Paxos replica...")
 		rep := paxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply,
-				*beacon, *durable, *statsFile)
+			*beacon, *durable, *statsFile)
 		rpc.Register(rep)
 		go catchKill(rep, interrupt)
 	}
@@ -151,7 +151,7 @@ func catchKill(f Finishable, interrupt chan os.Signal) {
 	}
 	if *statsFile != "" {
 		log.Printf("Writing stats to file %s.\n", *statsFile)
-		f.Finish() 
+		f.Finish()
 	}
 	if *memProfile != "" {
 		f, err := os.Create(*memProfile)

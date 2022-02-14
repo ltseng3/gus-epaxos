@@ -372,7 +372,7 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo)
 		}
 
 		before := time.Now()
-		writer.WriteByte(genericsmrproto.Propose)
+		writer.WriteByte(genericsmrproto.PROPOSE)
 		args.Marshal(writer)
 		writer.Flush()
 
