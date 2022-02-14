@@ -6,8 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"gus"
-	"gus-epaxos/gus-epaxos/src/gpaxos"
-	"gus-epaxos/gus-epaxos/src/mencius"
 	"log"
 	"net/rpc"
 	"os"
