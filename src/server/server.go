@@ -5,10 +5,10 @@ import (
 	"fastpaxos"
 	"flag"
 	"fmt"
-	"gpaxos"
 	"gus"
+	"gus-epaxos/gus-epaxos/src/gpaxos"
+	"gus-epaxos/gus-epaxos/src/mencius"
 	"log"
-	"mencius"
 	"net/rpc"
 	"os"
 	"os/signal"
@@ -120,18 +120,6 @@ func main() {
 		log.Println("Starting Egalitarian Paxos replica...")
 		rep := epaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply,
 				*beacon, *durable, *statsFile, *noConflicts)
-		rpc.Register(rep)
-		go catchKill(rep, interrupt)
-	} else if *doMencius {
-		log.Println("Starting Mencius replica...")
-		rep := mencius.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply,
-				*durable, *statsFile)
-		rpc.Register(rep)
-		go catchKill(rep, interrupt)
-	} else if *doGpaxos {
-		log.Println("Starting Generalized Paxos replica...")
-		rep := gpaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply,
-				*statsFile)
 		rpc.Register(rep)
 		go catchKill(rep, interrupt)
 	} else {

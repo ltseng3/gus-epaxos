@@ -117,6 +117,9 @@ func main() {
 
 	orInfos = make([]*outstandingRequestInfo, *T)
 
+	// Only used for non-gryff protocols.
+	var rlReply *masterproto.GetReplicaListReply
+
 	if *replProtocol != "gryff" {
 		var master *rpc.Client
 		var err error
@@ -129,7 +132,7 @@ func main() {
 			}
 		}
 
-		rlReply := new(masterproto.GetReplicaListReply)
+		rlReply = new(masterproto.GetReplicaListReply)
 		for !rlReply.Ready {
 			err := master.Call("Master.GetReplicaList", new(masterproto.GetReplicaListArgs), rlReply)
 			if err != nil {
@@ -156,11 +159,10 @@ func main() {
 
 	//startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
 	experimentStart := time.Now()
-
 	for i := 0; i < *T; i++ {
-
+		leader := 0
 		if *replProtocol == "gryff" {
-			leader := 0
+			// automatically allocate clients equally
 			if *singleClusterTest {
 				leader = i % *numServers
 			}
@@ -170,12 +172,6 @@ func main() {
 				leader = i % *numServers
 			}
 
-			server, err := net.Dial("tcp", rlReply.ReplicaList[leader])
-			if err != nil {
-				log.Fatalf("Error connecting to replica %d\n", leader)
-			}
-			reader := bufio.NewReader(server)
-			writer := bufio.NewWriter(server)
 		}
 
 		orInfo := &outstandingRequestInfo{
@@ -190,6 +186,14 @@ func main() {
 		if *replProtocol == "gryff" {
 			go simulatedGryffClientWriter(orInfo, readings, leader, i)
 		} else {
+			server, err := net.Dial("tcp", rlReply.ReplicaList[leader])
+			if err != nil {
+				log.Fatalf("Error connecting to replica %d\n", leader)
+			}
+
+			reader := bufio.NewReader(server)
+			writer := bufio.NewWriter(server)
+
 			go simulatedClientWriter(writer, orInfo)
 			go simulatedClientReader(reader, orInfo, readings, leader)
 		}
@@ -313,7 +317,7 @@ func simulatedGryffClientWriter(orInfo *outstandingRequestInfo, readings chan *r
 }
 
 func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo) {
-	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 0}, 0 /* timestamp */}
+	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 0, 0 /* old value, which I think is ignored for non-gryff protocols*/}, 0 /* timestamp */}
 	//args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 
 	conflictRand := rand.New(rand.NewSource(time.Now().UnixNano()))
