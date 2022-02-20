@@ -18,7 +18,7 @@ const TRUE = uint8(1)
 const FALSE = uint8(0)
 
 const MAX_BATCH = 1
-const CLOCK = 1000 * 10
+const CLOCK = 1000*10
 
 type Replica struct {
 	*genericsmr.Replica // extends a generic Paxos replica
@@ -69,7 +69,7 @@ type LeaderBookkeeping struct {
 }
 
 func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool) *Replica {
-	r := &Replica{genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply, false, ""),
+	r := &Replica{genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),

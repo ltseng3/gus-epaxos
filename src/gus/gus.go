@@ -78,7 +78,7 @@ type OpsBookkeeping struct {
 }
 
 func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool) *Replica {
-	r := &Replica{genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply, false, ""),
+	r := &Replica{genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
@@ -526,7 +526,7 @@ func (r *Replica) initializeView(key state.Key, tag gusproto.Tag) {
 func (r *Replica) reset(seq int32) {
 	// Optimization: process pending operations
 	if len(r.pendingReads) != 0 {
-		fmt.Printf("Handling parallel read operations %d\n", len(r.pendingReads))
+		fmt.Print("Handling parallel read operations %d\n", len(r.pendingReads))
 		var proposal *genericsmr.Propose
 		for i := 0; i < len(r.pendingReads); i++ {
 			proposal = r.pendingReads[i]

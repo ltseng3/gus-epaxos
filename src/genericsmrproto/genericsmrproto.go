@@ -1,7 +1,6 @@
 package genericsmrproto
 
 import (
-	"fastrpc"
 	"state"
 )
 
@@ -77,8 +76,4 @@ type BeTheLeaderArgs struct {
 }
 
 type BeTheLeaderReply struct {
-}
-
-func (t *ProposeReplyTS) New() fastrpc.Serializable {
-	return new(ProposeReplyTS)
 }

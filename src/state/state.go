@@ -1,7 +1,10 @@
 package state
 
 import (
-	"log"
+	"sync"
+	//"fmt"
+	//"code.google.com/p/leveldb-go/leveldb"
+	//"encoding/binary"
 )
 
 type Operation uint8
@@ -13,7 +16,6 @@ const (
 	DELETE
 	RLOCK
 	WLOCK
-	CAS
 )
 
 type Value int64
@@ -26,54 +28,31 @@ type Command struct {
 	Op Operation
 	K  Key
 	V  Value
-	OldValue Value
 }
 
 type State struct {
+	mutex *sync.Mutex
 	Store map[Key]Value
 	//DB *leveldb.DB
 }
 
-func NewState() *State {
+func InitState() *State {
 	/*
-		 d, err := leveldb.Open("/Users/iulian/git/epaxos-batching/dpaxos/bin/db", nil)
+	   d, err := leveldb.Open("/Users/iulian/git/epaxos-batching/dpaxos/bin/db", nil)
 
-		 if err != nil {
-				 log.Printf("Leveldb open failed: %v\n", err)
-		 }
+	   if err != nil {
+	       fmt.Printf("Leveldb open failed: %v\n", err)
+	   }
 
-		 return &State{d}
+	   return &State{d}
 	*/
 
-	return &State{make(map[Key]Value)}
-}
-
-
-func AllOpTypes() []Operation {
-	return []Operation{PUT, GET, CAS}
-}
-
-func GetConflictingOpTypes(op Operation) []Operation {
-	switch op {
-		case PUT:
-			return []Operation{PUT, GET, CAS}
-		case GET:
-			return []Operation{PUT, GET, CAS}
-		case CAS:
-			return []Operation{PUT, GET, CAS}
-		default:
-			log.Fatalf("Unsupported op type: %d.\n", op)
-			return nil
-	}
-}
-
-func OpTypesConflict(op1 Operation, op2 Operation) bool {
-	return op1 == PUT || op1 == CAS || op2 == PUT || op2 == CAS
+	return &State{new(sync.Mutex), make(map[Key]Value)}
 }
 
 func Conflict(gamma *Command, delta *Command) bool {
 	if gamma.K == delta.K {
-		if gamma.Op == PUT || gamma.Op == CAS  || delta.Op == PUT || delta.Op == CAS {
+		if gamma.Op == PUT || delta.Op == PUT {
 			return true
 		}
 	}
@@ -91,16 +70,12 @@ func ConflictBatch(batch1 []Command, batch2 []Command) bool {
 	return false
 }
 
-func (command *Command) CanReplyWithoutExecute() bool {
-	return command.Op == PUT
-}
-
 func IsRead(command *Command) bool {
 	return command.Op == GET
 }
 
 func (c *Command) Execute(st *State) Value {
-	//log.Printf("Executing (%d, %d)\n", c.K, c.V)
+	//fmt.Printf("Executing (%d, %d)\n", c.K, c.V)
 
 	//var key, value [8]byte
 
@@ -108,29 +83,21 @@ func (c *Command) Execute(st *State) Value {
 	//    defer st.mutex.Unlock()
 
 	switch c.Op {
-		case PUT:
-			/*
-				 binary.LittleEndian.PutUint64(key[:], uint64(c.K))
-				 binary.LittleEndian.PutUint64(value[:], uint64(c.V))
-				 st.DB.Set(key[:], value[:], nil)
-			*/
+	case PUT:
+		/*
+		   binary.LittleEndian.PutUint64(key[:], uint64(c.K))
+		   binary.LittleEndian.PutUint64(value[:], uint64(c.V))
+		   st.DB.Set(key[:], value[:], nil)
+		*/
 
-			st.Store[c.K] = c.V
-			return c.V
+		st.Store[c.K] = c.V
+		return c.V
 
-		case GET:
-			if val, present := st.Store[c.K]; present {
-				return val
-			}
-		case CAS:
-			if val, present := st.Store[c.K]; present {
-				if val == c.OldValue {
-					st.Store[c.K] = c.V
-					return val
-				}
-			}
+	case GET:
+		if val, present := st.Store[c.K]; present {
+			return val
+		}
 	}
-
 
 	return NIL
 }
