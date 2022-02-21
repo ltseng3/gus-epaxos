@@ -51,9 +51,9 @@
     }
   },
   "max_bandwidth": "1gibps",
-  "control_src_directory": "/root/go/src/gus-epaxos",
+  "gus_epaxos_control_src_directory": "/root/go/src/gus-epaxos",
+  "gryff_control_src_directory": "/root/go/src/gryff-testing",
   "base_control_experiment_directory": "/root/go/src/gus-epaxos/results",
-  "control_bin_directory": "/root/go/src/gus-epaxos/results/bin",
   "base_remote_experiment_directory": "~/results",
   "remote_bin_directory": "~/bin",
   "replication_protocol": "gus",

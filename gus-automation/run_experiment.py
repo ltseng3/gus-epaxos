@@ -9,8 +9,10 @@ from setup_network_delay import get_server_name_to_internal_ip_map
 
 
 def run_experiment(config, timestamp, executor):
+    kill_machines(config, executor)
+
     master_thread = start_master(config, timestamp)
-    server_names_to_internal_ips = get_server_name_to_internal_ip_map(config)
+    server_names_to_internal_ips = get_server_name_to_internal_ip_map(config) # for easy binary execution
     server_threads = start_servers(config, timestamp, server_names_to_internal_ips)
     client_thread = start_clients(config, timestamp, server_names_to_internal_ips)
 
@@ -18,7 +20,6 @@ def run_experiment(config, timestamp, executor):
     for server_thread in server_threads:
         server_thread.terminate()
     master_thread.terminate()
-    # kill_machines(config, executor)
 
     path_to_client_data = collect_exp_data(config, timestamp, executor)
     calculate_exp_data(config, path_to_client_data)

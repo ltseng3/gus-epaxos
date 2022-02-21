@@ -1,5 +1,5 @@
-# Control binaries are located in <control_src_directory>/bin.
-# Remote binaries are stored in <remote_bin_directory>
+# Control binaries are located in <gus_epaxos_control_src_directory>/bin and <gryff_control_src_directory>/bin.
+# Remote binaries are stored in <remote_bin_directory>/gus-epaxos and <remote_bin_directory>/gryff.
 # Control experiment directories are located in <base_control_experiment_directory>/<timestamp of experiment>
 # Remote experiment directories are located in <base_remote_experiment_directory>/<timestamp of experiment>
 
@@ -21,17 +21,19 @@ def setup_nodes(config, executor):
 
 def make_binaries(config):
     print("making binaries")
+    make_repo_binaries(config['gus_epaxos_control_src_directory'])
+    make_repo_binaries(config['gryff_control_src_directory'])
 
-    control_src_directory = config['control_src_directory']
 
+def make_repo_binaries(repo_directory):
     # Add temporary environment variables to be used when compiling binaries.
     e = os.environ.copy()
-    e["GOPATH"] = control_src_directory # the bin directory will be located inside the repo
+    e["GOPATH"] = repo_directory # the bin directory will be located inside the repo
 
-    # Make binaries in bin directory (located at <control_src_directory>/bin).
-    subprocess.call(["go", "install", "master"], cwd=control_src_directory, env=e)
-    subprocess.call(["go", "install", "server"], cwd=control_src_directory, env=e)
-    subprocess.call(["go", "install", "client"], cwd=control_src_directory, env=e)
+    # Make binaries in bin directory (located at <repo_directory>/bin).
+    subprocess.call(["go", "install", "master"], cwd=repo_directory, env=e)
+    subprocess.call(["go", "install", "server"], cwd=repo_directory, env=e)
+    subprocess.call(["go", "install", "client"], cwd=repo_directory, env=e)
 
 
 def prepare_control_exp_directory(config, config_file=None):
@@ -45,8 +47,7 @@ def prepare_control_exp_directory(config, config_file=None):
 
 # TODO include type of experiment (latency, throughput, etc.) here
 def get_timestamped_exp_dir(config):
-    now_string = time.strftime('%Y-%m-%d-%H-%M-%S',
-                               time.localtime())
+    now_string = time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime())
     return os.path.join(config['base_control_experiment_directory'], now_string)
 
 
@@ -73,8 +74,13 @@ def prepare_remote_exp_and_bin_directories(config, timestamp, executor):
 
 def prepare_remote_exp_and_bin_directory(config, machine_name, remote_out_directory, remote_bin_directory):
     machine_url = get_machine_url(config, machine_name)
+
     run_remote_command_sync('mkdir -p %s' % remote_out_directory, machine_url)
-    run_remote_command_sync('mkdir -p %s' % remote_bin_directory, machine_url)
+
+    gus_epaxos_remote_bin_directory = os.path.join(remote_bin_directory, "gus-epaxos")
+    gryff_remote_bin_directory = os.path.join(remote_bin_directory, "gryff")
+    run_remote_command_sync('mkdir -p %s' % gus_epaxos_remote_bin_directory, machine_url)
+    run_remote_command_sync('mkdir -p %s' % gryff_remote_bin_directory, machine_url)
 
 
 def copy_binaries_to_machines(config, executor):

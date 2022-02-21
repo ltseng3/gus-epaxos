@@ -5,7 +5,10 @@ from remote_util import *
 
 def get_master_cmd(config, timestamp):
     exp_directory = os.path.join(config['base_remote_experiment_directory'], timestamp);
-    path_to_master_bin = os.path.join(config['remote_bin_directory'], 'master')
+    if config['replication_protocol'] == "gryff":
+        path_to_master_bin = os.path.join(config['remote_bin_directory'], 'gryff', 'master')
+    else:
+        path_to_master_bin = os.path.join(config['remote_bin_directory'], 'gus-epaxos', 'master')
 
     master_command = ' '.join([str(x) for x in [path_to_master_bin, '-N', len(config['server_names'])]])
 
@@ -18,8 +21,11 @@ def get_master_cmd(config, timestamp):
 
 
 def get_server_cmd(config, timestamp, server_names_to_ips, server_name):
-    exp_directory = os.path.join(config['base_remote_experiment_directory'], timestamp);
-    path_to_server_bin = os.path.join(config['remote_bin_directory'], 'server')
+    exp_directory = os.path.join(config['base_remote_experiment_directory'], timestamp)
+    if config['replication_protocol'] == "gryff":
+        path_to_server_bin = os.path.join(config['remote_bin_directory'], 'gryff', 'server')
+    else:
+        path_to_server_bin = os.path.join(config['remote_bin_directory'], 'gus-epaxos', 'server')
     server_addr = server_names_to_ips[server_name]
     master_addr = server_names_to_ips[config['server_names'][0]]
 
@@ -51,8 +57,10 @@ def get_replication_protocol_args(replication_protocol):
 
 def get_client_cmd(config, timestamp, server_names_to_ips):
     exp_directory = os.path.join(config['base_remote_experiment_directory'], timestamp);
-    path_to_client_bin = os.path.join(config['remote_bin_directory'], 'client')
-
+    if config['replication_protocol'] == "gryff":
+        path_to_client_bin = os.path.join(config['remote_bin_directory'], 'gryff', 'client')
+    else:
+        path_to_client_bin = os.path.join(config['remote_bin_directory'], 'gus-epaxos', 'client')
     master_addr = server_names_to_ips[config['server_names'][0]]
 
     client_command = ' '.join([str(x) for x in [
