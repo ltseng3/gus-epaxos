@@ -86,17 +86,23 @@ def prepare_remote_exp_and_bin_directory(config, machine_name, remote_out_direct
 def copy_binaries_to_machines(config, executor):
     print("copying binaries")
 
-    control_binary_directory = os.path.join(config['control_src_directory'], 'bin')
-    remote_binary_directory = config['remote_bin_directory']
+    gus_epaxos_control_bin_directory = os.path.join(config['gus_epaxos_control_src_directory'], 'bin')
+    gryff_control_bin_directory = os.path.join(config['gryff_control_src_directory'], 'bin')
+    gus_epaxos_remote_bin_directory = os.path.join(config['remote_bin_directory'], 'gus-epaxos')
+    gryff_remote_bin_directory = os.path.join(config['remote_bin_directory'], 'gryff')
 
     futures = []
     for server_name in config['server_names']:
         server_url = get_machine_url(config, server_name)
         futures.append(executor.submit(copy_local_directory_to_remote,
-                                       control_binary_directory, server_url, remote_binary_directory))
+                                       gus_epaxos_control_bin_directory, server_url, gus_epaxos_remote_bin_directory))
+        futures.append(executor.submit(copy_local_directory_to_remote,
+                                       gryff_remote_bin_directory, server_url, gryff_remote_bin_directory))
 
     client_url = get_machine_url(config, 'client')
     futures.append(executor.submit(copy_local_directory_to_remote,
-                                   control_binary_directory, client_url, remote_binary_directory))
+                                   gus_epaxos_control_bin_directory, client_url, gus_epaxos_remote_bin_directory))
+    futures.append(executor.submit(copy_local_directory_to_remote,
+                                   gryff_control_bin_directory, client_url, gryff_remote_bin_directory))
 
     concurrent.futures.wait(futures)
