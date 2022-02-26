@@ -35,6 +35,7 @@ def setup_delays(config, executor):
                                            config['cloudlab_user'], server_url))
 
     concurrent.futures.wait(futures)
+    return server_ips_to_delays
 
 
 def get_server_name_to_internal_ip_map(config):

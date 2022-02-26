@@ -5,14 +5,38 @@ import time
 
 from command_util import *
 from remote_util import *
-from setup_network_delay import get_server_name_to_internal_ip_map
+from setup_network_delay import setup_delays, get_server_name_to_internal_ip_map
+from setup_nodes import setup_nodes
 
+# def run_multiple_experiments(experiment_type, config, timestamp, executor):
+#     # server name to internal ip mapping is used for easy execution of binaries when running an experiment
+#     server_names_to_internal_ips = setup_delays(config, executor)
+#
+#     if experiment_type == "single":
+#         run_experiment(server_names_to_internal_ips, config, timestamp, executor)
+#     elif experiment_type == "tail_latency":
+#         replication_protocols = ['gus', 'gryff', 'epaxos']
+#         conflict_percentages = [2, 10, 25, 25]
+#         write_percentages = [0.055, 0.055, 0.055, 0.055]
+#         numbers_of_replicas = [3, 3, 3, 5]
+#
+#         for replication_protocol in replication_protocols:
+#             for i in range(conflict_percentages):
+#                 config['number_of_replicas'] = numbers_of_replicas[i]
+#                 config['conflict_percentage'] = conflict_percentages[i]
+#                 config['write_percentage'] = write_percentages[i]
+#
+#                 # TODO figure out folder structure of experiment data
+#                 timestamp = setup_nodes(config, executor)
+#
+#     else:
+#         print("Please select a valid experiment type")
+#         exit()
 
-def run_experiment(config, timestamp, executor):
+def run_experiment(server_names_to_internal_ips, config, timestamp, executor):
     kill_machines(config, executor)
 
     master_thread = start_master(config, timestamp)
-    server_names_to_internal_ips = get_server_name_to_internal_ip_map(config) # for easy binary execution
     server_threads = start_servers(config, timestamp, server_names_to_internal_ips)
     client_thread = start_clients(config, timestamp, server_names_to_internal_ips)
 
@@ -79,5 +103,6 @@ def collect_exp_data(config, timestamp, executor):
     return path_to_client_data
 
 def calculate_exp_data(config, path_to_client_data):
-    client_cdf_analysis_script = os.path.join(config['control_src_directory'], "client_metrics.py")
+    # TODO
+    client_cdf_analysis_script = os.path.join(config['gus_epaxos_control_src_directory'], "client_metrics.py")
     subprocess.call(["python3.8", client_cdf_analysis_script], cwd=path_to_client_data)

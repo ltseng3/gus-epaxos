@@ -9,14 +9,36 @@ import subprocess
 import time
 
 from remote_util import *
+from git_util import *
 
 
 def setup_nodes(config, executor):
+    switch_to_branch(config)
     make_binaries(config)
     timestamp = prepare_control_exp_directory(config)
     prepare_remote_exp_and_bin_directories(config, timestamp, executor)
     copy_binaries_to_machines(config, executor)
     return timestamp
+
+def switch_to_branch(config):
+    if config['number_of_replicas'] == 3:
+        destination_branch = "main"
+    elif config['number_of_replicas'] == 5:
+        destination_branch = "n=5"
+    else:
+        print("ERROR: supported number of replicas is only 3 or 5")
+        exit(1)
+
+    gus_epaxos_control_src_directory = config['gus_epaxos_control_src_directory']
+    gryff_control_src_directory = config['gryff_control_src_directory']
+
+    print("switching from branch %s to %s in the gus-epaxos repo" %
+          (get_current_branch(gus_epaxos_control_src_directory), destination_branch))
+    checkout_branch_hard_reset(gus_epaxos_control_src_directory, destination_branch)
+
+    print("switching from branch %s to %s in the gryff repo" %
+          (get_current_branch(gryff_control_src_directory), destination_branch))
+    checkout_branch_hard_reset(gryff_control_src_directory, destination_branch)
 
 
 def make_binaries(config):
