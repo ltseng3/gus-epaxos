@@ -2,14 +2,14 @@ package main
 
 import (
 	"epaxos"
+	"fastpaxos"
 	"flag"
 	"fmt"
 	"gpaxos"
+	"gus"
 	"log"
 	"masterproto"
 	"mencius"
-	"gus"
-	"fastpaxos"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -18,6 +18,7 @@ import (
 	"paxos"
 	"runtime"
 	"runtime/pprof"
+	"syscall"
 	"time"
 )
 
@@ -25,7 +26,7 @@ var portnum *int = flag.Int("port", 7070, "Port # to listen on. Defaults to 7070
 var masterAddr *string = flag.String("maddr", "", "Master address. Defaults to localhost.")
 var masterPort *int = flag.Int("mport", 7087, "Master port.  Defaults to 7087.")
 var myAddr *string = flag.String("addr", "", "Server address (this machine). Defaults to localhost.")
-var doGus *bool = flag.Bool("gus", true," Use Gus as the replication protocol. Defaults to true.")
+var doGus *bool = flag.Bool("gus", true, " Use Gus as the replication protocol. Defaults to true.")
 var doMencius *bool = flag.Bool("m", false, "Use Mencius as the replication protocol. Defaults to false.")
 var doGpaxos *bool = flag.Bool("g", false, "Use Generalized Paxos as the replication protocol. Defaults to false.")
 var doEpaxos *bool = flag.Bool("e", false, "Use EPaxos as the replication protocol. Defaults to false.")
@@ -115,7 +116,13 @@ func registerWithMaster(masterAddr string) (int, []string) {
 }
 
 func catchKill(interrupt chan os.Signal) {
-	<-interrupt
+	signal := <-interrupt
+
+	if signal == syscall.SIGURG {
+		fmt.Println("Caught SIGURG, proceeding with run.")
+		return
+	}
+
 	if *cpuprofile != "" {
 		pprof.StopCPUProfile()
 	}
