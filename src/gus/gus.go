@@ -522,16 +522,17 @@ func (r *Replica) run() {
 				}
 				r.storage[key][ackRead.CurrentTag] = ackRead.Value
 
-				// transform write into byte array
-				if r.Durable {
-					var b [24]byte
-					binary.LittleEndian.PutUint64(b[0:8], uint64(key))
-					binary.LittleEndian.PutUint32(b[8:12], uint32(ackRead.CurrentTag.Timestamp))
-					binary.LittleEndian.PutUint32(b[12:16], uint32(ackRead.CurrentTag.WriterID))
-					binary.LittleEndian.PutUint64(b[16:24], uint64(ackRead.Value))
-					r.StableStore.Write(b[:])
-					r.sync()
-				}
+				// This is not needed, because this replica can write to disk when receiving the write request
+				//// transform write into byte array
+				//if r.Durable {
+				//	var b [24]byte
+				//	binary.LittleEndian.PutUint64(b[0:8], uint64(key))
+				//	binary.LittleEndian.PutUint32(b[8:12], uint32(ackRead.CurrentTag.Timestamp))
+				//	binary.LittleEndian.PutUint32(b[12:16], uint32(ackRead.CurrentTag.WriterID))
+				//	binary.LittleEndian.PutUint64(b[16:24], uint64(ackRead.Value))
+				//	r.StableStore.Write(b[:])
+				//	r.sync()
+				//}
 
 				r.initializeView(key, ackRead.CurrentTag)
 				r.view[key][ackRead.CurrentTag][r.Id] = true
