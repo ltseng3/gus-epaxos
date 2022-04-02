@@ -2,6 +2,7 @@ package gus
 
 import (
 	"dlog"
+	"encoding/binary"
 	"fastrpc"
 	"fmt"
 	"genericsmr"
@@ -250,6 +251,18 @@ func (r *Replica) run() {
 					r.initializeView(key, r.currentTag[key])
 					r.view[key][r.currentTag[key]][r.Id] = true
 					r.storage[key][r.currentTag[key]] = write.Command.V
+
+					// transform write into byte array
+					if r.Durable {
+						var b [24]byte
+						binary.LittleEndian.PutUint64(b[0:8], uint64(key))
+						binary.LittleEndian.PutUint32(b[8:12], uint32(r.currentTag[key].Timestamp))
+						binary.LittleEndian.PutUint32(b[12:16], uint32(r.currentTag[key].WriterID))
+						binary.LittleEndian.PutUint64(b[16:24], uint64(write.Command.V))
+						r.StableStore.Write(b[:])
+						r.sync()
+					}
+
 					r.bcastUpdateView(seq, write.WriterID, r.currentTag[key].Timestamp)
 				} else {
 					// Incoming write has a smaller tag, so put it in the tmpStorage
@@ -305,6 +318,17 @@ func (r *Replica) run() {
 						r.initializeView(key, r.currentTag[key])
 						r.view[key][r.currentTag[key]][r.Id] = true
 						r.storage[key][r.currentTag[key]] = r.bookkeeping[seq].valueToWrite
+
+						// transform write into byte array
+						if r.Durable {
+							var b [24]byte
+							binary.LittleEndian.PutUint64(b[0:8], uint64(key))
+							binary.LittleEndian.PutUint32(b[8:12], uint32(r.currentTag[key].Timestamp))
+							binary.LittleEndian.PutUint32(b[12:16], uint32(r.currentTag[key].WriterID))
+							binary.LittleEndian.PutUint64(b[16:24], uint64(r.bookkeeping[seq].valueToWrite))
+							r.StableStore.Write(b[:])
+							r.sync()
+						}
 					} else {
 						// There is a staleTag = TRUE
 						r.currentTag[key] = gusproto.Tag{r.bookkeeping[seq].maxTime + 1, r.Id}
@@ -358,6 +382,18 @@ func (r *Replica) run() {
 				}
 				// Move value from tmpStorage to Storage
 				r.storage[key][commitTag] = r.tmpStorage[key][r.currentTag[key]]
+
+				// transform write into byte array
+				if r.Durable {
+					var b [24]byte
+					binary.LittleEndian.PutUint64(b[0:8], uint64(key))
+					binary.LittleEndian.PutUint32(b[8:12], uint32(commitTag.Timestamp))
+					binary.LittleEndian.PutUint32(b[12:16], uint32(commitTag.WriterID))
+					binary.LittleEndian.PutUint64(b[16:24], uint64(r.tmpStorage[key][r.currentTag[key]]))
+					r.StableStore.Write(b[:])
+					r.sync()
+				}
+
 				delete(r.tmpStorage[key], commitTag)
 				r.initializeView(key, commitTag)
 				r.view[key][commitTag][r.Id] = true
@@ -398,6 +434,18 @@ func (r *Replica) run() {
 					r.bookkeeping[seq].complete = true
 					r.bcastUpdateView(seq, ackCommit.WriterID, r.currentTag[key].Timestamp)
 					r.storage[key][r.currentTag[key]] = r.bookkeeping[seq].valueToWrite
+
+					// transform write into byte array
+					if r.Durable {
+						var b [24]byte
+						binary.LittleEndian.PutUint64(b[0:8], uint64(key))
+						binary.LittleEndian.PutUint32(b[8:12], uint32(r.currentTag[key].Timestamp))
+						binary.LittleEndian.PutUint32(b[12:16], uint32(r.currentTag[key].WriterID))
+						binary.LittleEndian.PutUint64(b[16:24], uint64(r.bookkeeping[seq].valueToWrite))
+						r.StableStore.Write(b[:])
+						r.sync()
+					}
+
 					r.initializeView(key, r.currentTag[key])
 					r.view[key][r.currentTag[key]][r.Id] = true
 				}
@@ -473,6 +521,18 @@ func (r *Replica) run() {
 					r.storage[key] = make(map[gusproto.Tag]state.Value)
 				}
 				r.storage[key][ackRead.CurrentTag] = ackRead.Value
+
+				// transform write into byte array
+				if r.Durable {
+					var b [24]byte
+					binary.LittleEndian.PutUint64(b[0:8], uint64(key))
+					binary.LittleEndian.PutUint32(b[8:12], uint32(ackRead.CurrentTag.Timestamp))
+					binary.LittleEndian.PutUint32(b[12:16], uint32(ackRead.CurrentTag.WriterID))
+					binary.LittleEndian.PutUint64(b[16:24], uint64(ackRead.Value))
+					r.StableStore.Write(b[:])
+					r.sync()
+				}
+
 				r.initializeView(key, ackRead.CurrentTag)
 				r.view[key][ackRead.CurrentTag][r.Id] = true
 				r.bcastUpdateView(0, ackRead.CurrentTag.WriterID, ackRead.CurrentTag.Timestamp)
