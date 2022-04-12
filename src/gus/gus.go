@@ -51,6 +51,8 @@ type Replica struct {
 	activeWrite         map[state.Key]bool
 	leadingOp           map[state.Key]int32
 	pendingReads        []*genericsmr.Propose
+	readQurum           int
+	writeQuorum         int
 }
 
 type AsyncObj struct {
@@ -78,7 +80,7 @@ type OpsBookkeeping struct {
 	isAsyncWrite        uint8
 }
 
-func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool) *Replica {
+func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool, readQ int, writeQ int) *Replica {
 	r := &Replica{genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
@@ -104,9 +106,13 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		make(map[state.Key]bool),
 		make(map[state.Key]bool),
 		make(map[state.Key]int32),
-		[]*genericsmr.Propose{}}
+		[]*genericsmr.Propose{},
+		0,
+		0}
 
 	r.Durable = durable
+	r.readQurum = readQ
+	r.writeQuorum = writeQ
 
 	r.writeRPC = r.RegisterRPC(new(gusproto.Write), r.writeChan)
 	r.ackWriteRPC = r.RegisterRPC(new(gusproto.AckWrite), r.ackWriteChan)
