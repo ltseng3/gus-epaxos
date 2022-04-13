@@ -1,16 +1,21 @@
 package main
 
 import (
+	"epaxos"
+	"fastpaxos"
 	"flag"
 	"fmt"
+	"gpaxos"
 	"gus"
 	"log"
 	"masterproto"
+	"mencius"
 	"net"
 	"net/http"
 	"net/rpc"
 	"os"
 	"os/signal"
+	"paxos"
 	"runtime"
 	"runtime/pprof"
 	"syscall"
@@ -33,8 +38,6 @@ var exec = flag.Bool("exec", false, "Execute commands.")
 var dreply = flag.Bool("dreply", true, "Reply to client only after command has been executed.")
 var beacon = flag.Bool("beacon", false, "Send beacons to other replicas to compare their relative speeds.")
 var durable = flag.Bool("durable", false, "Log to a stable store (i.e., a file in the current dir).")
-var readQ *int = flag.Int("readQ", 4, "size of read quorum")
-var writeQ *int = flag.Int("writeQ", 5, "size of read quorum")
 
 func main() {
 	flag.Parse()
@@ -59,7 +62,27 @@ func main() {
 
 	if *doGus {
 		log.Println("Starting Gus replica...")
-		rep := gus.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable, *readQ, *writeQ)
+		rep := gus.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable)
+		rpc.Register(rep)
+	} else if *doFastpaxos {
+		log.Println("Starting Fast Paxos replica...")
+		rep := fastpaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable)
+		rpc.Register(rep)
+	} else if *doEpaxos {
+		log.Println("Starting Egalitarian Paxos replica...")
+		rep := epaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *beacon, *durable)
+		rpc.Register(rep)
+	} else if *doMencius {
+		log.Println("Starting Mencius replica...")
+		rep := mencius.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable)
+		rpc.Register(rep)
+	} else if *doGpaxos {
+		log.Println("Starting Generalized Paxos replica...")
+		rep := gpaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply)
+		rpc.Register(rep)
+	} else {
+		log.Println("Starting classic Paxos replica...")
+		rep := paxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable)
 		rpc.Register(rep)
 	}
 
