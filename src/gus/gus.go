@@ -51,6 +51,8 @@ type Replica struct {
 	activeWrite         map[state.Key]bool
 	leadingOp           map[state.Key]int32
 	pendingReads        []*genericsmr.Propose
+	readQurum           int
+	writeQuorum         int
 }
 
 type AsyncObj struct {
@@ -76,9 +78,11 @@ type OpsBookkeeping struct {
 	checkStorageForRead bool        // default = false
 	complete            bool
 	isAsyncWrite        uint8
+	receivedTag         map[gusproto.Tag]int
+	myTag               gusproto.Tag
 }
 
-func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool) *Replica {
+func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool, readQ int, writeQ int) *Replica {
 	r := &Replica{genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
@@ -104,9 +108,13 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		make(map[state.Key]bool),
 		make(map[state.Key]bool),
 		make(map[state.Key]int32),
-		[]*genericsmr.Propose{}}
+		[]*genericsmr.Propose{},
+		0,
+		0}
 
 	r.Durable = durable
+	r.readQurum = readQ
+	r.writeQuorum = writeQ
 
 	r.writeRPC = r.RegisterRPC(new(gusproto.Write), r.writeChan)
 	r.ackWriteRPC = r.RegisterRPC(new(gusproto.AckWrite), r.ackWriteChan)
@@ -185,6 +193,7 @@ func (r *Replica) run() {
 				// Initialize bookkeeping struct
 				r.bookkeeping[r.currentSeq].proposal = propose
 				r.bookkeeping[r.currentSeq].key = key
+				r.bookkeeping[r.currentSeq].receivedTag = make(map[gusproto.Tag]int)
 
 				if propose.Command.Op == state.GET {
 					// GET
@@ -217,6 +226,7 @@ func (r *Replica) run() {
 						r.bookkeeping[r.currentSeq].maxTime = r.currentTag[key].Timestamp + 1
 						r.currentTag[key] = gusproto.Tag{r.currentTag[key].Timestamp + 1, r.Id}
 					}
+					r.bookkeeping[r.currentSeq].myTag = gusproto.Tag{r.bookkeeping[r.currentSeq].maxTime, r.Id}
 					r.bcastWrite(r.currentSeq, propose.Command, r.bookkeeping[r.currentSeq].isAsyncWrite)
 					r.currentSeq++
 				}
@@ -291,17 +301,31 @@ func (r *Replica) run() {
 			key := r.bookkeeping[seq].key
 
 			r.bookkeeping[seq].ackWrites++
-			// See if I have a staleTag
-			r.bookkeeping[seq].staleTag = r.bookkeeping[seq].staleTag + ackWrite.StaleTag
-			// Update my timestamp if my timestamp is smaller
-			if r.bookkeeping[seq].maxTime < ackWrite.OtherTag.Timestamp {
-				r.bookkeeping[seq].maxTime = ackWrite.OtherTag.Timestamp
+			// Record "larger" tags received from writeQuorum
+			if r.bookkeeping[seq].myTag.LessThan(ackWrite.OtherTag) {
+				_, existenceTag := r.bookkeeping[seq].receivedTag[ackWrite.OtherTag]
+				if !existenceTag {
+					r.bookkeeping[seq].receivedTag[ackWrite.OtherTag] = 1
+				} else {
+					r.bookkeeping[seq].receivedTag[ackWrite.OtherTag] = r.bookkeeping[seq].receivedTag[ackWrite.OtherTag] + 1
+
+					// Decide if there might be a completed write
+					// If there is, then set staleTag to 1
+					threshold := 2*r.writeQuorum - r.N
+					if r.bookkeeping[seq].receivedTag[ackWrite.OtherTag] >= threshold {
+						r.bookkeeping[seq].staleTag = 1
+
+						// Update my timestamp to be this tag
+						r.bookkeeping[seq].maxTime = ackWrite.OtherTag.Timestamp
+					}
+				}
 			}
 
 			if r.bookkeeping[seq].isAsyncWrite == 0 {
 				// Check if I have received responses from a quorum
-				if (r.bookkeeping[seq].ackWrites >= (r.N-1)/2) && !r.bookkeeping[seq].doneFirstWait && !r.bookkeeping[seq].complete {
+				if r.bookkeeping[seq].ackWrites >= r.writeQuorum && !r.bookkeeping[seq].doneFirstWait && !r.bookkeeping[seq].complete {
 					r.bookkeeping[seq].doneFirstWait = true
+
 					if r.bookkeeping[seq].staleTag == 0 { // All staleTag = FALSE
 						// Reply to writer client
 						dlog.Printf("GUS: reply to client %d +++ Fast Path +++\n", r.currentSeq)
@@ -338,7 +362,7 @@ func (r *Replica) run() {
 					}
 				}
 			} else {
-				if (r.bookkeeping[seq].ackWrites >= (r.N-1)/2) && !r.bookkeeping[seq].doneFirstWait && !r.bookkeeping[seq].complete {
+				if r.bookkeeping[seq].ackWrites >= r.writeQuorum && !r.bookkeeping[seq].doneFirstWait && !r.bookkeeping[seq].complete {
 					r.bookkeeping[seq].doneFirstWait = true
 					if r.bookkeeping[seq].staleTag == 0 { // All staleTag = FALSE
 						// Reply to writer client
@@ -420,7 +444,7 @@ func (r *Replica) run() {
 			key := r.bookkeeping[seq].key
 
 			if r.bookkeeping[seq].isAsyncWrite == 0 {
-				if r.bookkeeping[seq].waitForAckCommit && !r.bookkeeping[seq].complete && r.bookkeeping[seq].ackCommits >= (r.N-1)/2 {
+				if r.bookkeeping[seq].waitForAckCommit && !r.bookkeeping[seq].complete && r.bookkeeping[seq].ackCommits >= r.writeQuorum {
 					// Reply to client
 					dlog.Printf("GUS: reply to client %d +++ Slow Path +++\n", r.currentSeq)
 					if r.bookkeeping[seq].proposal != nil {
@@ -516,11 +540,11 @@ func (r *Replica) run() {
 				r.currentTag[key] = gusproto.Tag{ackRead.CurrentTag.Timestamp, ackRead.CurrentTag.WriterID}
 
 				// Optimizing read for n=3
-				_, existence := r.storage[key]
-				if !existence {
-					r.storage[key] = make(map[gusproto.Tag]state.Value)
-				}
-				r.storage[key][ackRead.CurrentTag] = ackRead.Value
+				//_, existence := r.storage[key]
+				//if !existence {
+				//	r.storage[key] = make(map[gusproto.Tag]state.Value)
+				//}
+				//r.storage[key][ackRead.CurrentTag] = ackRead.Value
 
 				// This is not needed, because this replica can write to disk when receiving the write request
 				//// transform write into byte array
@@ -539,10 +563,10 @@ func (r *Replica) run() {
 				r.bcastUpdateView(0, ackRead.CurrentTag.WriterID, ackRead.CurrentTag.Timestamp)
 			}
 
-			if (r.bookkeeping[seq].ackReads >= (r.N-1)/2) && r.bookkeeping[seq].waitForAckRead {
+			if r.bookkeeping[seq].ackReads >= r.readQurum && r.bookkeeping[seq].waitForAckRead {
 				r.initializeView(key, r.currentTag[key])
 				// Check if a quorum of replicas have received this value/tag
-				if len(r.view[key][r.currentTag[key]]) >= (r.N-1)/2 {
+				if len(r.view[key][r.currentTag[key]]) >= r.readQurum {
 					tag := gusproto.Tag{r.currentTag[key].Timestamp, r.currentTag[key].WriterID}
 					// Reply to reader client
 					propreply := &genericsmrproto.ProposeReplyTS{
