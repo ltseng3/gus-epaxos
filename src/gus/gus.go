@@ -660,7 +660,7 @@ func (r *Replica) bcastAckRead(seq int32, readerID int32, key state.Key) {
 	ackReadMSG.Value = r.storage[key][r.currentTag[key]]
 	args := &ackReadMSG
 
-	r.bcastAll(r.ackReadRPC, args)
+	r.SendMsg(readerID, r.ackReadRPC, args)
 }
 
 var writeMSG gusproto.Write
