@@ -127,10 +127,17 @@ func main() {
 			make(map[int32]time.Time, *outstandingReqs),
 			make(map[int32]bool, *outstandingReqs)}
 
+		// the percent of each operation actually performed by this specific client
+		var pActualWrites float64
+		if leader == 0 { // nodes connected to Paxos leader should only write
+			pActualWrites = 1
+		} else {
+			pActualWrites = ((*percentWrites * 3) - 1) / 2
+		}
 		//waitTime := startTime.Intn(3)
 		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
 
-		go simulatedClientWriter(writer, orInfo)
+		go simulatedClientWriter(writer, orInfo, pActualWrites)
 		go simulatedClientReader(reader, orInfo, readings, leader)
 
 		orInfos[i] = orInfo
@@ -143,7 +150,7 @@ func main() {
 	}
 }
 
-func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo) {
+func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo, pActualWrites float64) {
 	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 0}, 0 /* timestamp */}
 	//args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 
@@ -171,7 +178,7 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo)
 		}
 
 		// Determine operation type
-		if *percentWrites > opRand.Float64() {
+		if pActualWrites > opRand.Float64() {
 			if !*blindWrites {
 				args.Command.Op = state.PUT // write operation
 			} else {
@@ -262,7 +269,6 @@ func printer(readings chan *response) {
 	}
 	//latFile.WriteString("# time (ns), latency, commit latency\n")
 
-
 	startTime := time.Now()
 
 	for {
@@ -347,7 +353,7 @@ func printerMultipeFile(readings chan *response, numLeader int, experimentStart 
 			resp := <-readings
 
 			// Log all to latency file if they are not within the ramp up or ramp down period.
-			if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout - *rampDown {
+			if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout-*rampDown {
 				if resp.isRead {
 					latFileRead[resp.replicaID].WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
 				} else {
@@ -378,7 +384,7 @@ func printerMultipeFile(readings chan *response, numLeader int, experimentStart 
 		// Log summary to lattput file
 		//lattputFile.WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(), avg, tput, count, totalOrs, avgCommit))
 		// Log all to latency file if they are not within the ramp up or ramp down period.
-		if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout - *rampDown {
+		if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout-*rampDown {
 			lattputFile.WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(), avg, tput, count, totalOrs, avgCommit))
 		}
 		startTime = endTime

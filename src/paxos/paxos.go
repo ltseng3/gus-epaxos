@@ -18,7 +18,7 @@ const TRUE = uint8(1)
 const FALSE = uint8(0)
 
 const MAX_BATCH = 1
-const CLOCK = 1000*10
+const CLOCK = 1000 * 10
 
 type Replica struct {
 	*genericsmr.Replica // extends a generic Paxos replica
@@ -26,14 +26,18 @@ type Replica struct {
 	acceptChan          chan fastrpc.Serializable
 	commitChan          chan fastrpc.Serializable
 	commitShortChan     chan fastrpc.Serializable
+	readChan            chan fastrpc.Serializable
 	prepareReplyChan    chan fastrpc.Serializable
 	acceptReplyChan     chan fastrpc.Serializable
+	readReplyChan       chan fastrpc.Serializable
 	prepareRPC          uint8
 	acceptRPC           uint8
 	commitRPC           uint8
+	readRPC             uint8
 	commitShortRPC      uint8
 	prepareReplyRPC     uint8
 	acceptReplyRPC      uint8
+	readReplyRPC        uint8
 	IsLeader            bool        // does this replica think it is the leader
 	instanceSpace       []*Instance // the space of all instances (used and not yet used)
 	crtInstance         int32       // highest active instance number that this replica knows about
@@ -42,6 +46,10 @@ type Replica struct {
 	counter             int
 	flush               bool
 	committedUpTo       int32
+	executedUpTo        int32
+	readOKs             map[int]int
+	readData            map[int][]*paxosproto.ReadReply
+	readProposal        map[int]*genericsmr.Propose
 }
 
 type InstanceStatus int
@@ -75,8 +83,10 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
+		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, 3*genericsmr.CHAN_BUFFER_SIZE),
-		0, 0, 0, 0, 0, 0,
+		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
+		0, 0, 0, 0, 0, 0, 0, 0,
 		false,
 		make([]*Instance, 15*1024*1024),
 		0,
@@ -84,7 +94,12 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		false,
 		0,
 		true,
-		-1}
+		-1,
+		-1,
+		map[int]int{},
+		map[int][]*paxosproto.ReadReply{},
+		map[int]*genericsmr.Propose{},
+	}
 
 	r.Durable = durable
 
@@ -92,15 +107,17 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 	r.acceptRPC = r.RegisterRPC(new(paxosproto.Accept), r.acceptChan)
 	r.commitRPC = r.RegisterRPC(new(paxosproto.Commit), r.commitChan)
 	r.commitShortRPC = r.RegisterRPC(new(paxosproto.CommitShort), r.commitShortChan)
+	r.readRPC = r.RegisterRPC(new(paxosproto.Read), r.readChan)
 	r.prepareReplyRPC = r.RegisterRPC(new(paxosproto.PrepareReply), r.prepareReplyChan)
 	r.acceptReplyRPC = r.RegisterRPC(new(paxosproto.AcceptReply), r.acceptReplyChan)
+	r.readReplyRPC = r.RegisterRPC(new(paxosproto.ReadReply), r.readReplyChan)
 
 	go r.run()
 
 	return r
 }
 
-//append a log entry to stable storage
+// append a log entry to stable storage
 func (r *Replica) recordInstanceMetadata(inst *Instance) {
 	if !r.Durable {
 		return
@@ -112,7 +129,7 @@ func (r *Replica) recordInstanceMetadata(inst *Instance) {
 	r.StableStore.Write(b[:])
 }
 
-//write a sequence of commands to stable storage
+// write a sequence of commands to stable storage
 func (r *Replica) recordCommands(cmds []state.Command) {
 	if !r.Durable {
 		return
@@ -126,7 +143,7 @@ func (r *Replica) recordCommands(cmds []state.Command) {
 	}
 }
 
-//sync with the stable store
+// sync with the stable store
 func (r *Replica) sync() {
 	if !r.Durable {
 		return
@@ -148,6 +165,10 @@ func (r *Replica) replyPrepare(replicaId int32, reply *paxosproto.PrepareReply) 
 
 func (r *Replica) replyAccept(replicaId int32, reply *paxosproto.AcceptReply) {
 	r.SendMsg(replicaId, r.acceptReplyRPC, reply)
+}
+
+func (r *Replica) replyRead(replicaId int32, reply *paxosproto.ReadReply) {
+	r.SendMsg(replicaId, r.readReplyRPC, reply)
 }
 
 /* ============= */
@@ -229,6 +250,13 @@ func (r *Replica) run() {
 			r.handleCommitShort(commit)
 			break
 
+		case readS := <-r.readChan:
+			read := readS.(*paxosproto.Read)
+			//got a Read message
+			dlog.Printf("Received Read from replica %d\n", read.LeaderId)
+			r.handleRead(read)
+			break
+
 		case prepareReplyS := <-r.prepareReplyChan:
 			prepareReply := prepareReplyS.(*paxosproto.PrepareReply)
 			//got a Prepare reply
@@ -241,6 +269,13 @@ func (r *Replica) run() {
 			//got an Accept reply
 			dlog.Printf("Received AcceptReply for instance %d\n", acceptReply.Instance)
 			r.handleAcceptReply(acceptReply)
+			break
+
+		case readReplyS := <-r.readReplyChan:
+			readReply := readReplyS.(*paxosproto.ReadReply)
+			//got a Read reply
+			dlog.Printf("Received ReadReply with instance %d\n", readReply.Instance)
+			r.handleReadReply(readReply)
 			break
 		}
 	}
@@ -384,53 +419,59 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 		return
 	}
 
-	for r.instanceSpace[r.crtInstance] != nil {
-		r.crtInstance++
-	}
-
-	instNo := r.crtInstance
-	r.crtInstance++
-
-	batchSize := len(r.ProposeChan) + 1
-
-	if batchSize > MAX_BATCH {
-		batchSize = MAX_BATCH
-	}
-
-	dlog.Printf("Batched %d\n", batchSize)
-
-	cmds := make([]state.Command, batchSize)
-	proposals := make([]*genericsmr.Propose, batchSize)
-	cmds[0] = propose.Command
-	proposals[0] = propose
-
-	for i := 1; i < batchSize; i++ {
-		prop := <-r.ProposeChan
-		cmds[i] = prop.Command
-		proposals[i] = prop
-	}
-
-	if r.defaultBallot == -1 {
-		r.instanceSpace[instNo] = &Instance{
-			cmds,
-			r.makeUniqueBallot(0),
-			PREPARING,
-			&LeaderBookkeeping{proposals, 0, 0, 0, 0}}
-		r.bcastPrepare(instNo, r.makeUniqueBallot(0), true)
-		dlog.Printf("Classic round for instance %d\n", instNo)
+	// got read command
+	if propose.Command.Op == state.GET {
+		r.readProposal[propose.CommandId] = propose
+		r.bcastRead(propose.CommandId)
 	} else {
-		r.instanceSpace[instNo] = &Instance{
-			cmds,
-			r.defaultBallot,
-			PREPARED,
-			&LeaderBookkeeping{proposals, 0, 0, 0, 0}}
+		for r.instanceSpace[r.crtInstance] != nil {
+			r.crtInstance++
+		}
 
-		r.recordInstanceMetadata(r.instanceSpace[instNo])
-		r.recordCommands(cmds)
-		r.sync()
+		instNo := r.crtInstance
+		r.crtInstance++
 
-		r.bcastAccept(instNo, r.defaultBallot, cmds)
-		dlog.Printf("Fast round for instance %d\n", instNo)
+		batchSize := len(r.ProposeChan) + 1
+
+		if batchSize > MAX_BATCH {
+			batchSize = MAX_BATCH
+		}
+
+		dlog.Printf("Batched %d\n", batchSize)
+
+		cmds := make([]state.Command, batchSize)
+		proposals := make([]*genericsmr.Propose, batchSize)
+		cmds[0] = propose.Command
+		proposals[0] = propose
+
+		for i := 1; i < batchSize; i++ {
+			prop := <-r.ProposeChan
+			cmds[i] = prop.Command
+			proposals[i] = prop
+		}
+
+		if r.defaultBallot == -1 {
+			r.instanceSpace[instNo] = &Instance{
+				cmds,
+				r.makeUniqueBallot(0),
+				PREPARING,
+				&LeaderBookkeeping{proposals, 0, 0, 0, 0}}
+			r.bcastPrepare(instNo, r.makeUniqueBallot(0), true)
+			dlog.Printf("Classic round for instance %d\n", instNo)
+		} else {
+			r.instanceSpace[instNo] = &Instance{
+				cmds,
+				r.defaultBallot,
+				PREPARED,
+				&LeaderBookkeeping{proposals, 0, 0, 0, 0}}
+
+			r.recordInstanceMetadata(r.instanceSpace[instNo])
+			r.recordCommands(cmds)
+			r.sync()
+
+			r.bcastAccept(instNo, r.defaultBallot, cmds)
+			dlog.Printf("Fast round for instance %d\n", instNo)
+		}
 	}
 }
 
@@ -679,8 +720,9 @@ func (r *Replica) executeCommands() {
 						r.ReplyProposeTS(propreply, inst.lb.clientProposals[j].Reply)
 					}
 				}
-				i++
+				r.executedUpTo++
 				executed = true
+				i++
 			} else {
 				break
 			}
@@ -691,4 +733,80 @@ func (r *Replica) executeCommands() {
 		}
 	}
 
+}
+
+var pr paxosproto.Read
+
+// broadcast read to other replicas
+func (r *Replica) bcastRead(readId int) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Println("Read bcast failed:", err)
+		}
+	}()
+	pr.LeaderId = r.Id
+	pr.ReadId = readId
+	args := &pr
+	//args := &paxosproto.Accept{r.Id, instance, ballot, command}
+
+	n := r.N - 1
+	if r.Thrifty {
+		n = r.N >> 1
+	}
+	q := r.Id
+
+	for sent := 0; sent < n; {
+		q = (q + 1) % int32(r.N)
+		if q == r.Id {
+			break
+		}
+		if !r.Alive[q] {
+			continue
+		}
+		sent++
+		r.SendMsg(q, r.acceptRPC, args)
+	}
+}
+
+// replica responds with highest slot accepted
+func (r *Replica) handleRead(read *paxosproto.Read) {
+	var readReply *paxosproto.ReadReply
+	readReply = &paxosproto.ReadReply{
+		Instance: r.executedUpTo,
+		ReadId:   read.ReadId,
+		Command:  r.instanceSpace[r.executedUpTo],
+	}
+	r.replyRead(read.LeaderId, readReply)
+}
+
+// pick the highest accepted slot, respond to client
+func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
+	r.readOKs[readReply.ReadId]++
+	r.readData[readReply.ReadId] = append(r.readData[readReply.ReadId], readReply)
+
+	// if readProposal is nil, read has already been completed
+	if r.readProposal[readReply.ReadId] == nil {
+		return
+	}
+
+	// Wait for a majority of acknowledgements
+	if r.readOKs[readReply.ReadId] > r.N>>1 {
+		largestReplyIndex := 0
+		largestSlot := r.readData[readReply.ReadId][0].Instance
+		for i, reply := range r.readData[readReply.ReadId] {
+			if reply.Instance > largestSlot {
+				largestSlot = reply.Instance
+				largestReplyIndex = i
+			}
+		}
+
+		propreply := &genericsmrproto.ProposeReplyTS{
+			TRUE,
+			readReply.ReadId,
+			r.readData[readReply.ReadId][largestReplyIndex].Command.K,
+			-1}
+		r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
+		r.readData[readReply.ReadId] = nil
+		r.readProposal[readReply.ReadId] = nil
+	}
 }

@@ -53,3 +53,14 @@ type CommitShort struct {
 	Count    int32
 	Ballot   int32
 }
+
+type Read struct {
+	LeaderId int32
+	ReadId   int32
+}
+
+type ReadReply struct {
+	Instance int32
+	ReadId   int32
+	Command  []state.Command
+}
