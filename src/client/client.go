@@ -107,11 +107,16 @@ func main() {
 	//startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
 	experimentStart := time.Now()
 
+	writeCutOff := int(*percentWrites * float64(*T))
 	for i := 0; i < *T; i++ {
-
 		// automatically allocate clients equally
 		if *singleClusterTest {
-			leader = i % len(rlReply.ReplicaList)
+			if i < writeCutOff {
+				leader = 0
+			} else {
+				leader = (i % (len(rlReply.ReplicaList) - 1)) + 1
+			}
+
 		}
 
 		server, err := net.Dial("tcp", rlReply.ReplicaList[leader])
@@ -127,17 +132,10 @@ func main() {
 			make(map[int32]time.Time, *outstandingReqs),
 			make(map[int32]bool, *outstandingReqs)}
 
-		// the percent of each operation actually performed by this specific client
-		var pActualWrites float64
-		if leader == 0 { // nodes connected to Paxos leader should only write
-			pActualWrites = 1
-		} else {
-			pActualWrites = ((*percentWrites * 3) - 1) / 2
-		}
 		//waitTime := startTime.Intn(3)
 		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
 
-		go simulatedClientWriter(writer, orInfo, pActualWrites)
+		go simulatedClientWriter(writer, orInfo, leader)
 		go simulatedClientReader(reader, orInfo, readings, leader)
 
 		orInfos[i] = orInfo
@@ -150,7 +148,7 @@ func main() {
 	}
 }
 
-func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo, pActualWrites float64) {
+func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo, leader int) {
 	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 0}, 0 /* timestamp */}
 	//args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 
@@ -178,7 +176,7 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo,
 		}
 
 		// Determine operation type
-		if pActualWrites > opRand.Float64() {
+		if leader == 0 {
 			if !*blindWrites {
 				args.Command.Op = state.PUT // write operation
 			} else {
