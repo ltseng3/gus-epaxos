@@ -46,9 +46,9 @@ type Replica struct {
 	counter             int
 	flush               bool
 	committedUpTo       int32
-	executedUpTo        int32
+	executedUpTo		int32
 	readOKs             map[int]int
-	readData            map[int][]*paxosproto.ReadReply
+	readData            map[int][]int
 	readProposal        map[int]*genericsmr.Propose
 }
 
@@ -97,7 +97,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		-1,
 		-1,
 		map[int]int{},
-		map[int][]*paxosproto.ReadReply{},
+		map[int][]int{},
 		map[int]*genericsmr.Propose{},
 	}
 
@@ -711,7 +711,7 @@ func (r *Replica) executeCommands() {
 				inst := r.instanceSpace[i]
 				for j := 0; j < len(inst.cmds); j++ {
 					val := inst.cmds[j].Execute(r.State)
-					if r.Dreply && inst.lb != nil && inst.lb.clientProposals != nil {
+					if r.IsLeader && .Dreply && inst.lb != nil && inst.lb.clientProposals != nil {
 						propreply := &genericsmrproto.ProposeReplyTS{
 							TRUE,
 							inst.lb.clientProposals[j].CommandId,
@@ -772,9 +772,9 @@ func (r *Replica) bcastRead(readId int) {
 func (r *Replica) handleRead(read *paxosproto.Read) {
 	var readReply *paxosproto.ReadReply
 	readReply = &paxosproto.ReadReply{
-		Instance: r.executedUpTo,
+		Instance: r.committedUpTo,
 		ReadId:   read.ReadId,
-		Command:  r.instanceSpace[r.executedUpTo],
+		Command:  r.instanceSpace[r.committedUpTo],
 	}
 	r.replyRead(read.LeaderId, readReply)
 }
@@ -782,7 +782,7 @@ func (r *Replica) handleRead(read *paxosproto.Read) {
 // pick the highest accepted slot, respond to client
 func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 	r.readOKs[readReply.ReadId]++
-	r.readData[readReply.ReadId] = append(r.readData[readReply.ReadId], readReply)
+	r.readData[readReply.ReadId] = append(r.readData[readReply.ReadId], readReply.Instance)
 
 	// if readProposal is nil, read has already been completed
 	if r.readProposal[readReply.ReadId] == nil {
@@ -791,22 +791,28 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 
 	// Wait for a majority of acknowledgements
 	if r.readOKs[readReply.ReadId] > r.N>>1 {
-		largestReplyIndex := 0
 		largestSlot := r.readData[readReply.ReadId][0].Instance
-		for i, reply := range r.readData[readReply.ReadId] {
+
+		for _, reply := range r.readData[readReply.ReadId] {
 			if reply.Instance > largestSlot {
 				largestSlot = reply.Instance
-				largestReplyIndex = i
 			}
 		}
 
-		propreply := &genericsmrproto.ProposeReplyTS{
-			TRUE,
-			readReply.ReadId,
-			r.readData[readReply.ReadId][largestReplyIndex].Command.K,
-			-1}
-		r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
-		r.readData[readReply.ReadId] = nil
-		r.readProposal[readReply.ReadId] = nil
+		for {
+			// wait until slot has been executed
+			if largestSlot <= r.executedUpTo {
+				propreply := &genericsmrproto.ProposeReplyTS{
+					TRUE,
+					readReply.ReadId,
+					r.instanceSpace[i].cmds[0].Execute(r.State),
+					-1}
+				r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
+
+				r.readData[readReply.ReadId] = nil
+				r.readProposal[readReply.ReadId] = nil
+				break
+			}
+		}
 	}
 }

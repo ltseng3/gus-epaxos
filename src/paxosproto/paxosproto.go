@@ -55,8 +55,8 @@ type CommitShort struct {
 }
 
 type Read struct {
-	LeaderId int32
-	ReadId   int32
+	RequestorId int32
+	ReadId      int32
 }
 
 type ReadReply struct {
