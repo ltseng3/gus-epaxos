@@ -47,9 +47,9 @@ type Replica struct {
 	flush               bool
 	committedUpTo       int32
 	executedUpTo        int32
-	readOKs             map[int]int
-	readData            map[int][]int
-	readProposal        map[int]*genericsmr.Propose
+	readOKs             map[int32]int
+	readData            map[int32][]int
+	readProposal        map[int32]*genericsmr.Propose
 }
 
 type InstanceStatus int
@@ -96,9 +96,9 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		true,
 		-1,
 		-1,
-		map[int]int{},
-		map[int][]int{},
-		map[int]*genericsmr.Propose{},
+		map[int32]int{},
+		map[int32][]int{},
+		map[int32]*genericsmr.Propose{},
 	}
 
 	r.Durable = durable
