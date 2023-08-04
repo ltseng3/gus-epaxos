@@ -118,6 +118,7 @@ func main() {
 			}
 
 		}
+		log.Println("Connected to node: ", leader)
 
 		server, err := net.Dial("tcp", rlReply.ReplicaList[leader])
 		if err != nil {
