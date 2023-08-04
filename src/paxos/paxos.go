@@ -46,7 +46,7 @@ type Replica struct {
 	counter             int
 	flush               bool
 	committedUpTo       int32
-	executedUpTo		int32
+	executedUpTo        int32
 	readOKs             map[int]int
 	readData            map[int][]int
 	readProposal        map[int]*genericsmr.Propose
@@ -711,7 +711,7 @@ func (r *Replica) executeCommands() {
 				inst := r.instanceSpace[i]
 				for j := 0; j < len(inst.cmds); j++ {
 					val := inst.cmds[j].Execute(r.State)
-					if r.IsLeader && .Dreply && inst.lb != nil && inst.lb.clientProposals != nil {
+					if r.IsLeader && r.Dreply && inst.lb != nil && inst.lb.clientProposals != nil {
 						propreply := &genericsmrproto.ProposeReplyTS{
 							TRUE,
 							inst.lb.clientProposals[j].CommandId,
