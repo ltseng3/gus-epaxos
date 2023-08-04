@@ -109,10 +109,10 @@ func main() {
 
 	writeCutOff := int(*percentWrites * float64(*T))
 	log.Println("cut off ", writeCutOff)
-	for i := 0; i <= *T; i++ {
+	for i := 0; i < *T; i++ {
 		// automatically allocate clients equally
 		if *singleClusterTest {
-			if i < writeCutOff {
+			if i <= writeCutOff { // TODO: change back to < from <=
 				leader = 0
 			} else {
 				leader = (i % (len(rlReply.ReplicaList) - 1)) + 1
