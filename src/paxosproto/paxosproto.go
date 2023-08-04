@@ -62,5 +62,4 @@ type Read struct {
 type ReadReply struct {
 	Instance int32
 	ReadId   int32
-	Command  []state.Command
 }

@@ -48,7 +48,7 @@ type Replica struct {
 	committedUpTo       int32
 	executedUpTo        int32
 	readOKs             map[int32]int
-	readData            map[int32][]int
+	readData            map[int32][]int32
 	readProposal        map[int32]*genericsmr.Propose
 }
 
@@ -97,7 +97,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		-1,
 		-1,
 		map[int32]int{},
-		map[int32][]int{},
+		map[int32][]int32{},
 		map[int32]*genericsmr.Propose{},
 	}
 
@@ -738,7 +738,7 @@ func (r *Replica) executeCommands() {
 var pr paxosproto.Read
 
 // broadcast read to other replicas
-func (r *Replica) bcastRead(readId int) {
+func (r *Replica) bcastRead(readId int32) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Read bcast failed:", err)
@@ -774,7 +774,6 @@ func (r *Replica) handleRead(read *paxosproto.Read) {
 	readReply = &paxosproto.ReadReply{
 		Instance: r.committedUpTo,
 		ReadId:   read.ReadId,
-		Command:  r.instanceSpace[r.committedUpTo],
 	}
 	r.replyRead(read.RequesterId, readReply)
 }
@@ -791,11 +790,11 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 
 	// Wait for a majority of acknowledgements
 	if r.readOKs[readReply.ReadId] > r.N>>1 {
-		largestSlot := r.readData[readReply.ReadId][0].Instance
+		largestSlot := r.readData[readReply.ReadId][0]
 
 		for _, reply := range r.readData[readReply.ReadId] {
-			if reply.Instance > largestSlot {
-				largestSlot = reply.Instance
+			if reply > largestSlot {
+				largestSlot = reply
 			}
 		}
 
@@ -805,7 +804,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 				propreply := &genericsmrproto.ProposeReplyTS{
 					TRUE,
 					readReply.ReadId,
-					r.instanceSpace[i].cmds[0].Execute(r.State),
+					r.instanceSpace[largestSlot].cmds[0].Execute(r.State),
 					-1}
 				r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
 
