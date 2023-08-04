@@ -3,9 +3,9 @@ package paxosproto
 import (
 	"bufio"
 	"encoding/binary"
-	"gus-epaxos/src/fastrpc"
-	"gus-epaxos/src/state"
+	"fastrpc"
 	"io"
+	"state"
 	"sync"
 )
 
