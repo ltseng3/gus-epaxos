@@ -253,7 +253,7 @@ func (r *Replica) run() {
 		case readS := <-r.readChan:
 			read := readS.(*paxosproto.Read)
 			//got a Read message
-			dlog.Printf("Received Read from replica %d\n", read.LeaderId)
+			dlog.Printf("Received Read from replica %d\n", read.RequesterId)
 			r.handleRead(read)
 			break
 
@@ -744,7 +744,7 @@ func (r *Replica) bcastRead(readId int) {
 			log.Println("Read bcast failed:", err)
 		}
 	}()
-	pr.LeaderId = r.Id
+	pr.RequesterId = r.Id
 	pr.ReadId = readId
 	args := &pr
 	//args := &paxosproto.Accept{r.Id, instance, ballot, command}
@@ -776,7 +776,7 @@ func (r *Replica) handleRead(read *paxosproto.Read) {
 		ReadId:   read.ReadId,
 		Command:  r.instanceSpace[r.committedUpTo],
 	}
-	r.replyRead(read.LeaderId, readReply)
+	r.replyRead(read.RequesterId, readReply)
 }
 
 // pick the highest accepted slot, respond to client

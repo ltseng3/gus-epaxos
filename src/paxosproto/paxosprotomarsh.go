@@ -54,7 +54,7 @@ func (t *Read) Marshal(wire io.Writer) {
 	var b [8]byte
 	var bs []byte
 	bs = b[:8]
-	tmp32 := t.RequestorId
+	tmp32 := t.RequesterId
 	bs[0] = byte(tmp32 >> 24)
 	bs[1] = byte(tmp32 >> 16)
 	bs[2] = byte(tmp32 >> 8)
@@ -74,7 +74,7 @@ func (t *Read) Unmarshal(wire io.Reader) error {
 	if _, err := io.ReadAtLeast(wire, bs, 8); err != nil {
 		return err
 	}
-	t.RequestorId = int32(((uint32(bs[0]) << 24) | (uint32(bs[1]) << 16) | (uint32(bs[2]) << 8) | uint32(bs[3])))
+	t.RequesterId = int32(((uint32(bs[0]) << 24) | (uint32(bs[1]) << 16) | (uint32(bs[2]) << 8) | uint32(bs[3])))
 	t.ReadId = int32(((uint32(bs[4]) << 24) | (uint32(bs[5]) << 16) | (uint32(bs[6]) << 8) | uint32(bs[7])))
 	return nil
 }
