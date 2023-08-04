@@ -30,7 +30,7 @@ type Master struct {
 func main() {
 	flag.Parse()
 
-	log.Printf("Master starting on port %d\n", *portnum)
+	log.Printf("Master starting on port: %d\n", *portnum)
 	log.Printf("...waiting for %d replicas\n", *numNodes)
 
 	master := &Master{*numNodes,
