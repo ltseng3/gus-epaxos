@@ -108,7 +108,7 @@ func main() {
 	experimentStart := time.Now()
 
 	writeCutOff := int(*percentWrites * float64(*T))
-	log.Println("cut off ", writeCutoff)
+	log.Println("cut off ", writeCutOff)
 	for i := 0; i < *T; i++ {
 		// automatically allocate clients equally
 		if *singleClusterTest {
