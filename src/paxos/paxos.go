@@ -420,7 +420,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	// got read command
 	if propose.Command.Op == state.GET {
 		r.readProposal[propose.CommandId] = propose
-		r.bcastRead(propose.CommandId)
+		//r.bcastRead(propose.CommandId)
 	} else {
 		for r.instanceSpace[r.crtInstance] != nil {
 			r.crtInstance++
