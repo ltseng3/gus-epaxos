@@ -10,6 +10,7 @@ import (
 	"log"
 	"paxosproto"
 	"state"
+	"sync"
 	"time"
 )
 
@@ -52,6 +53,7 @@ type Replica struct {
 	readData            map[int32][]int32
 	readProposal        map[int32]*genericsmr.Propose
 	readsPending        map[int32]int32
+	mutex               sync.RWMutex
 }
 
 type InstanceStatus int
@@ -103,6 +105,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		map[int32][]int32{},
 		map[int32]*genericsmr.Propose{},
 		map[int32]int32{},
+		sync.RWMutex{},
 	}
 
 	r.Durable = durable
@@ -723,7 +726,10 @@ func (r *Replica) executeCommands() {
 				r.executedUpTo++
 				executed = true
 				// reply to pending read request after execution
-				if readId, ok := r.readsPending[i]; ok {
+				r.mutex.RLock()
+				readId, ok := r.readsPending[i]
+				r.mutex.RUnlock()
+				if ok {
 					propreply := &genericsmrproto.ProposeReplyTS{
 						TRUE,
 						readId,
@@ -830,7 +836,9 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			r.readData[readReply.ReadId] = nil
 			r.readProposal[readReply.ReadId] = nil
 		} else {
+			r.mutex.Lock()
 			r.readsPending[largestSlot] = readReply.ReadId
+			r.mutex.Unlock()
 		}
 	}
 }
