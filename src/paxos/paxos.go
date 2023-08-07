@@ -422,7 +422,6 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	// got read command
 	if propose.Command.Op == state.GET {
-		log.Println("got read ", propose.CommandId)
 		r.readProposal[propose.CommandId] = propose
 		r.bcastRead(propose.CommandId)
 	} else {
@@ -724,9 +723,9 @@ func (r *Replica) executeCommands() {
 						r.ReplyProposeTS(propreply, inst.lb.clientProposals[j].Reply)
 					}
 				}
-				log.Println("executed ", i)
 				r.executedUpTo++
 				executed = true
+
 				// reply to pending read request after execution
 				r.mutex.RLock()
 				proposal, ok := r.readsPending[i]
@@ -814,7 +813,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 				largestSlot = reply
 			}
 		}
-		log.Println("queueing ", readReply.ReadId, " with slot ", largestSlot)
+
 		r.readData[readReply.ReadId] = nil
 
 		if largestSlot == -1 {
