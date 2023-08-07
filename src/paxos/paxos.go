@@ -422,7 +422,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 
 	// got read command
 	if propose.Command.Op == state.GET {
-		log.Println(".... here")
+		log.Println("here!!!")
 		//r.readProposal[propose.CommandId] = propose
 		//r.bcastRead(propose.CommandId)
 	} else {
@@ -475,6 +475,8 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 			dlog.Printf("Fast round for instance %d\n", instNo)
 		}
 	}
+
+	log.Println("done?")
 }
 
 func (r *Replica) handlePrepare(prepare *paxosproto.Prepare) {
