@@ -420,7 +420,9 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 		return
 	}
 
-	if propose.Command.Op == state.GET {
+	if propose.Command.Op != state.GET {
+		log.Println("pre write")
+	} else {
 		log.Println("pre read")
 	}
 
