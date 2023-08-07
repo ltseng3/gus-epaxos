@@ -50,6 +50,7 @@ type Replica struct {
 	readOKs             map[int32]int
 	readData            map[int32][]int32
 	readProposal        map[int32]*genericsmr.Propose
+	readsPending        map[int32]int32
 }
 
 type InstanceStatus int
@@ -99,6 +100,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		map[int32]int{},
 		map[int32][]int32{},
 		map[int32]*genericsmr.Propose{},
+		map[int32]int32{},
 	}
 
 	r.Durable = durable
@@ -706,8 +708,9 @@ func (r *Replica) executeCommands() {
 		for i <= r.committedUpTo {
 			if r.instanceSpace[i].cmds != nil {
 				inst := r.instanceSpace[i]
+				val := 0
 				for j := 0; j < len(inst.cmds); j++ {
-					val := inst.cmds[j].Execute(r.State)
+					val = inst.cmds[j].Execute(r.State)
 					if r.IsLeader && r.Dreply && inst.lb != nil && inst.lb.clientProposals != nil {
 						propreply := &genericsmrproto.ProposeReplyTS{
 							TRUE,
@@ -719,6 +722,16 @@ func (r *Replica) executeCommands() {
 				}
 				r.executedUpTo++
 				executed = true
+				// reply to pending read request after execution
+				if readId, ok := r.readsPending[i]; ok {
+					propreply := &genericsmrproto.ProposeReplyTS{
+						TRUE,
+						readId,
+						val,
+						-1}
+					r.ReplyProposeTS(propreply, r.readProposal[readId].Reply)
+				}
+
 				i++
 			} else {
 				break
@@ -794,21 +807,31 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			}
 		}
 
-		for {
-			// wait until slot has been executed
-			if largestSlot <= r.executedUpTo {
-				log.Println("Diff ", largestSlot, r.executedUpTo)
-				propreply := &genericsmrproto.ProposeReplyTS{
-					TRUE,
-					readReply.ReadId,
-					r.instanceSpace[largestSlot].cmds[0].Execute(r.State),
-					-1}
-				r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
+		if largestSlot == -1 {
+			propreply := &genericsmrproto.ProposeReplyTS{
+				TRUE,
+				readReply.ReadId,
+				0,
+				-1}
+			r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
+			r.readData[readReply.ReadId] = nil
+			r.readProposal[readReply.ReadId] = nil
+			return
+		}
 
-				r.readData[readReply.ReadId] = nil
-				r.readProposal[readReply.ReadId] = nil
-				break
-			}
+		if largestSlot <= r.executedUpTo {
+			log.Println("Diff ", largestSlot, r.executedUpTo)
+			propreply := &genericsmrproto.ProposeReplyTS{
+				TRUE,
+				readReply.ReadId,
+				r.instanceSpace[largestSlot].cmds[0].Execute(r.State),
+				-1}
+			r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
+
+			r.readData[readReply.ReadId] = nil
+			r.readProposal[readReply.ReadId] = nil
+		} else {
+			r.readsPending[largestSlot] = readReply.ReadId
 		}
 	}
 }
