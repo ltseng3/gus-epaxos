@@ -828,6 +828,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			r.readData[readReply.ReadId] = nil
 			r.readProposal[readReply.ReadId] = nil
 		} else {
+			log.Println("pend")
 			r.readsPending[largestSlot] = readReply.ReadId
 		}
 	}
