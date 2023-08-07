@@ -731,6 +731,7 @@ func (r *Replica) executeCommands() {
 				proposal, ok := r.readsPending[i]
 				r.mutex.RUnlock()
 				if ok {
+					log.Println("executing r")
 					propreply := &genericsmrproto.ProposeReplyTS{
 						TRUE,
 						proposal.CommandId,
