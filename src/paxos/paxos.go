@@ -776,10 +776,6 @@ func (r *Replica) handleRead(read *paxosproto.Read) {
 
 // pick the highest accepted slot, respond to client
 func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
-	//preply := &genericsmrproto.ProposeReplyTS{TRUE, readReply.ReadId, 1, 0}
-	//r.ReplyProposeTS(preply, r.readProposal[readReply.ReadId].Reply)
-	//return
-
 	r.readOKs[readReply.ReadId]++
 	r.readData[readReply.ReadId] = append(r.readData[readReply.ReadId], readReply.Instance)
 
@@ -801,6 +797,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 		for {
 			// wait until slot has been executed
 			if largestSlot <= r.executedUpTo {
+				log.Println("Instance found, ", r.instanceSpace[largestSlot])
 				propreply := &genericsmrproto.ProposeReplyTS{
 					TRUE,
 					readReply.ReadId,
