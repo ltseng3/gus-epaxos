@@ -728,9 +728,11 @@ func (r *Replica) executeCommands() {
 				// reply to pending read request after execution
 				r.mutex.RLock()
 				readId, ok := r.readsPending[i]
-				proposal, _ := r.readProposal[readId]
 				r.mutex.RUnlock()
 				if ok {
+					r.mutex.RLock()
+					proposal, _ := r.readProposal[readId]
+					r.mutex.RUnlock()
 					propreply := &genericsmrproto.ProposeReplyTS{
 						TRUE,
 						readId,
