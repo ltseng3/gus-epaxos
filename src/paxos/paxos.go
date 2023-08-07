@@ -730,15 +730,12 @@ func (r *Replica) executeCommands() {
 				readId, ok := r.readsPending[i]
 				r.mutex.RUnlock()
 				if ok {
-					r.mutex.RLock()
-					proposal, _ := r.readProposal[readId]
-					r.mutex.RUnlock()
 					propreply := &genericsmrproto.ProposeReplyTS{
 						TRUE,
 						readId,
 						val,
 						-1}
-					r.ReplyProposeTS(propreply, proposal.Reply)
+					r.ReplyProposeTS(propreply, r.readProposal[readId].Reply)
 				}
 
 				i++
@@ -798,16 +795,13 @@ func (r *Replica) handleRead(read *paxosproto.Read) {
 
 // pick the highest accepted slot, respond to client
 func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
-	r.readOKs[readReply.ReadId]++
-	r.readData[readReply.ReadId] = append(r.readData[readReply.ReadId], readReply.Instance)
-
-	// if readProposal is nil, read has already been completed
-	r.mutex.Lock()
-	if r.readProposal[readReply.ReadId] == nil {
-		r.mutex.Unlock()
+	// if quorom has already been received, return
+	if r.readOKs[readReply.ReadId] > r.N>>1 {
 		return
 	}
-	r.mutex.Unlock()
+
+	r.readOKs[readReply.ReadId]++
+	r.readData[readReply.ReadId] = append(r.readData[readReply.ReadId], readReply.Instance)
 
 	// Wait for a majority of acknowledgements
 	if r.readOKs[readReply.ReadId] > r.N>>1 {
@@ -819,6 +813,9 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			}
 		}
 
+		r.readData[readReply.ReadId] = nil
+		r.readQueued[readReply.ReadId] = true
+
 		if largestSlot == -1 {
 			propreply := &genericsmrproto.ProposeReplyTS{
 				TRUE,
@@ -826,7 +823,6 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 				0,
 				-1}
 			r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
-			r.readData[readReply.ReadId] = nil
 			r.readProposal[readReply.ReadId] = nil
 			return
 		}
@@ -839,7 +835,6 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 				-1}
 			r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
 
-			r.readData[readReply.ReadId] = nil
 			r.readProposal[readReply.ReadId] = nil
 		} else {
 			r.mutex.Lock()
