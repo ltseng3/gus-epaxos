@@ -270,10 +270,9 @@ func (r *Replica) run() {
 
 		case acceptReplyS := <-r.acceptReplyChan:
 			acceptReply := acceptReplyS.(*paxosproto.AcceptReply)
-			log.Println("replied to accept")
 			//got an Accept reply
 			dlog.Printf("Received AcceptReply for instance %d\n", acceptReply.Instance)
-			//r.handleAcceptReply(acceptReply)
+			r.handleAcceptReply(acceptReply)
 			break
 
 		case readReplyS := <-r.readReplyChan:
