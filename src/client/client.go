@@ -234,7 +234,6 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 		isRead := orInfo.isRead[reply.CommandId]
 		delete(orInfo.startTimes, reply.CommandId)
 		orInfo.Unlock()
-		log.Println("is read? ", isRead)
 		rtt := (after.Sub(before)).Seconds() * 1000
 		//commitToExec := float64(reply.Timestamp) / 1e6
 		commitLatency := float64(0) //rtt - commitToExec
@@ -350,6 +349,7 @@ func printerMultipeFile(readings chan *response, numLeader int, experimentStart 
 			// Log all to latency file if they are not within the ramp up or ramp down period.
 			if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout-*rampDown {
 				if resp.isRead {
+					log.Println("read...")
 					latFileRead[resp.replicaID].WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
 				} else {
 					latFileWrite[resp.replicaID].WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
