@@ -800,6 +800,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 		largestSlot := r.readData[readReply.ReadId][0]
 
 		for _, reply := range r.readData[readReply.ReadId] {
+			log.Println("largest: ", reply)
 			if reply > largestSlot {
 				largestSlot = reply
 			}
