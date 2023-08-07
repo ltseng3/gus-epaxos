@@ -728,6 +728,7 @@ func (r *Replica) executeCommands() {
 				// reply to pending read request after execution
 				r.mutex.RLock()
 				readId, ok := r.readsPending[i]
+				proposal, _ := r.readProposal[readId]
 				r.mutex.RUnlock()
 				if ok {
 					propreply := &genericsmrproto.ProposeReplyTS{
@@ -735,7 +736,7 @@ func (r *Replica) executeCommands() {
 						readId,
 						val,
 						-1}
-					r.ReplyProposeTS(propreply, r.readProposal[readId].Reply)
+					r.ReplyProposeTS(propreply, proposal.Reply)
 				}
 
 				i++
@@ -799,9 +800,12 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 	r.readData[readReply.ReadId] = append(r.readData[readReply.ReadId], readReply.Instance)
 
 	// if readProposal is nil, read has already been completed
+	r.mutex.Lock()
 	if r.readProposal[readReply.ReadId] == nil {
+		r.mutex.Unlock()
 		return
 	}
+	r.mutex.Unlock()
 
 	// Wait for a majority of acknowledgements
 	if r.readOKs[readReply.ReadId] > r.N>>1 {
