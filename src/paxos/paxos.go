@@ -797,7 +797,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 		for {
 			// wait until slot has been executed
 			if largestSlot <= r.executedUpTo {
-				log.Println("Instance found, ", r.instanceSpace[largestSlot])
+				log.Println("Diff ", largestSlot, r.executedUpTo)
 				propreply := &genericsmrproto.ProposeReplyTS{
 					TRUE,
 					readReply.ReadId,
