@@ -794,6 +794,12 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			}
 		}
 
+		if largestSlot == -1 {
+			r.readOKs[readReply.ReadId] = 0
+			r.readData[readReply.ReadId] = nil
+			r.bcastRead(readReply.ReadId)
+		}
+
 		for {
 			// wait until slot has been executed
 			if largestSlot <= r.executedUpTo {
