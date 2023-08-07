@@ -415,11 +415,8 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 }
 
 func (r *Replica) handlePropose(propose *genericsmr.Propose) {
-	log.Println("PROPOSE : ", propose.Command.Op == state.GET)
-
 	// got read command
 	if propose.Command.Op == state.GET {
-		log.Println("got read")
 		r.readProposal[propose.CommandId] = propose
 		r.bcastRead(propose.CommandId)
 	} else {
@@ -724,6 +721,7 @@ func (r *Replica) executeCommands() {
 				executed = true
 				// reply to pending read request after execution
 				if readId, ok := r.readsPending[i]; ok {
+					log.Println("Executed, now replying")
 					propreply := &genericsmrproto.ProposeReplyTS{
 						TRUE,
 						readId,

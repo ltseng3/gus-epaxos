@@ -184,7 +184,6 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo,
 		} else {
 			args.Command.Op = state.GET // read operation
 		}
-		log.Println("This is : ", leader, args.Command.Op)
 
 		if *poissonAvg == -1 { // Poisson disabled
 			orInfo.sema.Acquire(context.Background(), 1)
