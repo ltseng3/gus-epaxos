@@ -419,6 +419,9 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	if propose.Command.Op == state.GET {
 		log.Println("got read")
 		r.readProposal[propose.CommandId] = propose
+		preply := &genericsmrproto.ProposeReplyTS{TRUE, propose.CommandId, 1, 0}
+		r.ReplyProposeTS(preply, propose.Reply)
+		return
 		r.bcastRead(propose.CommandId)
 	} else {
 		for r.instanceSpace[r.crtInstance] != nil {
