@@ -36,13 +36,13 @@ def get_metrics(dirname):
             l = l.split(' ')
             tputs.append(float(l[2]))
 
-    with open(path.join(dirname, 'latFileRead-0.txt')) as f:
-        exec_lats_read0 = []
-        # commit_lats = []
-        for l in f:
-            l = l.split(' ')
-            exec_lats_read0.append(float(l[1]))
-            # commit_lats.append(float(l[2]))
+    # with open(path.join(dirname, 'latFileRead-0.txt')) as f:
+    #     exec_lats_read0 = []
+    #     # commit_lats = []
+    #     for l in f:
+    #         l = l.split(' ')
+    #         exec_lats_read0.append(float(l[1]))
+    #         # commit_lats.append(float(l[2]))
 
     with open(path.join(dirname, 'latFileRead-1.txt')) as f:
         exec_lats_read1 = []
@@ -64,17 +64,17 @@ def get_metrics(dirname):
             exec_lats_write0.append(float(l[1]))
             # commit_lats.append(float(l[2]))
 
-    with open(path.join(dirname, 'latFileWrite-1.txt')) as f:
-        exec_lats_write1 = []
-        for l in f:
-            l = l.split(' ')
-            exec_lats_write1.append(float(l[1]))
-
-    with open(path.join(dirname, 'latFileWrite-2.txt')) as f:
-        exec_lats_write2 = []
-        for l in f:
-            l = l.split(' ')
-            exec_lats_write2.append(float(l[1]))
+    # with open(path.join(dirname, 'latFileWrite-1.txt')) as f:
+    #     exec_lats_write1 = []
+    #     for l in f:
+    #         l = l.split(' ')
+    #         exec_lats_write1.append(float(l[1]))
+    #
+    # with open(path.join(dirname, 'latFileWrite-2.txt')) as f:
+    #     exec_lats_write2 = []
+    #     for l in f:
+    #         l = l.split(' ')
+    #         exec_lats_write2.append(float(l[1]))
             
     execution_latency_aggregate_regions_combined = exec_lats_read0 + exec_lats_read1 + exec_lats_read2 + exec_lats_write0 + exec_lats_write1 + exec_lats_write2
 
@@ -84,13 +84,13 @@ def get_metrics(dirname):
         #'p90_lat_commit': np.percentile(commit_lats, 90),
         #'p95_lat_commit': np.percentile(commit_lats, 95),
         #'p99_lat_commit': np.percentile(commit_lats, 99),
-        'mean_Read0': statistics.mean(exec_lats_read0),
-        'p50_Read0': np.percentile(exec_lats_read0, 50),
-        'p90_Read0': np.percentile(exec_lats_read0, 90),
-        'p95_Read0': np.percentile(exec_lats_read0, 95),
-        'p99_Read0': np.percentile(exec_lats_read0, 99),
-        'p999_Read0': np.percentile(exec_lats_read0, 99.9),
-        'p9999_Read0': np.percentile(exec_lats_read0, 99.99),
+        # 'mean_Read0': statistics.mean(exec_lats_read0),
+        # 'p50_Read0': np.percentile(exec_lats_read0, 50),
+        # 'p90_Read0': np.percentile(exec_lats_read0, 90),
+        # 'p95_Read0': np.percentile(exec_lats_read0, 95),
+        # 'p99_Read0': np.percentile(exec_lats_read0, 99),
+        # 'p999_Read0': np.percentile(exec_lats_read0, 99.9),
+        # 'p9999_Read0': np.percentile(exec_lats_read0, 99.99),
         'mean_Read1': statistics.mean(exec_lats_read1),
         'p50_Read1': np.percentile(exec_lats_read1, 50),
         'p90_Read1': np.percentile(exec_lats_read1, 90),
@@ -112,20 +112,20 @@ def get_metrics(dirname):
         'p99_Write0': np.percentile(exec_lats_write0, 99),
         'p999_Write0': np.percentile(exec_lats_write0, 99.9),
         'p9999_Write0': np.percentile(exec_lats_write0, 99.99),
-        'mean_Write1': statistics.mean(exec_lats_write1),
-        'p50_Write1': np.percentile(exec_lats_write1, 50),
-        'p90_Write1': np.percentile(exec_lats_write1, 90),
-        'p95_Write1': np.percentile(exec_lats_write1, 95),
-        'p99_Write1': np.percentile(exec_lats_write1, 99),
-        'p999_Write1': np.percentile(exec_lats_write1, 99.9),
-        'p9999_Write1': np.percentile(exec_lats_write1, 99.99),
-        'mean_Write2': statistics.mean(exec_lats_write2),
-        'p50_Write2': np.percentile(exec_lats_write2, 50),
-        'p90_Write2': np.percentile(exec_lats_write2, 90),
-        'p95_Write2': np.percentile(exec_lats_write2, 95),
-        'p99_Write2': np.percentile(exec_lats_write2, 99),
-        'p999_Write2': np.percentile(exec_lats_write2, 99.9),
-        'p9999_Write2': np.percentile(exec_lats_write2, 99.99),
+        # 'mean_Write1': statistics.mean(exec_lats_write1),
+        # 'p50_Write1': np.percentile(exec_lats_write1, 50),
+        # 'p90_Write1': np.percentile(exec_lats_write1, 90),
+        # 'p95_Write1': np.percentile(exec_lats_write1, 95),
+        # 'p99_Write1': np.percentile(exec_lats_write1, 99),
+        # 'p999_Write1': np.percentile(exec_lats_write1, 99.9),
+        # 'p9999_Write1': np.percentile(exec_lats_write1, 99.99),
+        # 'mean_Write2': statistics.mean(exec_lats_write2),
+        # 'p50_Write2': np.percentile(exec_lats_write2, 50),
+        # 'p90_Write2': np.percentile(exec_lats_write2, 90),
+        # 'p95_Write2': np.percentile(exec_lats_write2, 95),
+        # 'p99_Write2': np.percentile(exec_lats_write2, 99),
+        # 'p999_Write2': np.percentile(exec_lats_write2, 99.9),
+        # 'p9999_Write2': np.percentile(exec_lats_write2, 99.99),
         'p50_latency': np.percentile(execution_latency_aggregate_regions_combined, 50),
         'p99.9_latency': np.percentile(execution_latency_aggregate_regions_combined, 99.9),
         'avg_tput': statistics.mean(tputs),
