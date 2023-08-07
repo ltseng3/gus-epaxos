@@ -798,6 +798,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			r.readOKs[readReply.ReadId] = 0
 			r.readData[readReply.ReadId] = nil
 			r.bcastRead(readReply.ReadId)
+			return
 		}
 
 		for {
