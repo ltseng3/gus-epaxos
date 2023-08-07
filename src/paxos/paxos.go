@@ -724,7 +724,6 @@ func (r *Replica) executeCommands() {
 				executed = true
 				// reply to pending read request after execution
 				if readId, ok := r.readsPending[i]; ok {
-					log.Println("Executed, now replying")
 					propreply := &genericsmrproto.ProposeReplyTS{
 						TRUE,
 						readId,
