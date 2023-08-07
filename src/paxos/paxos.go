@@ -52,7 +52,7 @@ type Replica struct {
 	readOKs             map[int32]int
 	readData            map[int32][]int32
 	readProposal        map[int32]*genericsmr.Propose
-	readsPending        map[int32]int32
+	readsPending        map[int32]*genericsmr.Propose
 	mutex               sync.RWMutex
 }
 
@@ -104,7 +104,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		map[int32]int{},
 		map[int32][]int32{},
 		map[int32]*genericsmr.Propose{},
-		map[int32]int32{},
+		map[int32]*genericsmr.Propose{},
 		sync.RWMutex{},
 	}
 
@@ -728,15 +728,15 @@ func (r *Replica) executeCommands() {
 				executed = true
 				// reply to pending read request after execution
 				r.mutex.RLock()
-				readId, ok := r.readsPending[i]
+				proposal, ok := r.readsPending[i]
 				r.mutex.RUnlock()
 				if ok {
 					propreply := &genericsmrproto.ProposeReplyTS{
 						TRUE,
-						readId,
+						proposal.CommandId,
 						val,
-						r.readProposal[readId].Timestamp}
-					r.ReplyProposeTS(propreply, r.readProposal[readId].Reply)
+						proposal.Timestamp}
+					r.ReplyProposeTS(propreply, proposal.Reply)
 				}
 
 				i++
@@ -838,7 +838,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			r.readProposal[readReply.ReadId] = nil
 		} else {
 			r.mutex.Lock()
-			r.readsPending[largestSlot] = readReply.ReadId
+			r.readsPending[largestSlot] = r.readProposal[readReply.ReadId]
 			r.mutex.Unlock()
 		}
 	}
