@@ -290,7 +290,6 @@ func (r *Replica) makeUniqueBallot(ballot int32) int32 {
 }
 
 func (r *Replica) updateCommittedUpTo() {
-	log.Println("updating committed")
 	for r.instanceSpace[r.committedUpTo+1] != nil &&
 		r.instanceSpace[r.committedUpTo+1].status == COMMITTED {
 		r.committedUpTo++
@@ -686,7 +685,7 @@ func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
 
 			r.recordInstanceMetadata(r.instanceSpace[areply.Instance])
 			r.sync() //is this necessary?
-
+			log.Println("committing soon")
 			r.updateCommittedUpTo()
 
 			r.bcastCommit(areply.Instance, inst.ballot, inst.cmds)
