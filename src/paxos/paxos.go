@@ -820,7 +820,6 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 		}
 
 		if largestSlot <= r.executedUpTo {
-			log.Println("Diff ", largestSlot, r.executedUpTo)
 			propreply := &genericsmrproto.ProposeReplyTS{
 				TRUE,
 				readReply.ReadId,
