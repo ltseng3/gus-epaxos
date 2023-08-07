@@ -418,11 +418,8 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	// got read command
 	if propose.Command.Op == state.GET {
 		log.Println("got read")
-		preply := &genericsmrproto.ProposeReplyTS{TRUE, propose.CommandId, 1, 0}
-		r.ReplyProposeTS(preply, propose.Reply)
-		return
-		//r.readProposal[propose.CommandId] = propose
-		//r.bcastRead(propose.CommandId)
+		r.readProposal[propose.CommandId] = propose
+		r.bcastRead(propose.CommandId)
 	} else {
 		for r.instanceSpace[r.crtInstance] != nil {
 			r.crtInstance++
@@ -780,6 +777,9 @@ func (r *Replica) handleRead(read *paxosproto.Read) {
 
 // pick the highest accepted slot, respond to client
 func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
+	preply := &genericsmrproto.ProposeReplyTS{TRUE, readReply.ReadId, 1, 0}
+	r.ReplyProposeTS(preply, r.readProposal[readReply.ReadId.Reply)
+	return
 	r.readOKs[readReply.ReadId]++
 	r.readData[readReply.ReadId] = append(r.readData[readReply.ReadId], readReply.Instance)
 
