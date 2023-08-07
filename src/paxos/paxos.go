@@ -814,7 +814,6 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 		}
 
 		r.readData[readReply.ReadId] = nil
-		r.readQueued[readReply.ReadId] = true
 
 		if largestSlot == -1 {
 			propreply := &genericsmrproto.ProposeReplyTS{
