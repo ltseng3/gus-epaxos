@@ -419,8 +419,8 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	// got read command
 	if propose.Command.Op == state.GET {
-		//r.readProposal[propose.CommandId] = propose
-		//r.bcastRead(propose.CommandId)
+		r.readProposal[propose.CommandId] = propose
+		r.bcastRead(propose.CommandId)
 	} else {
 		for r.instanceSpace[r.crtInstance] != nil {
 			r.crtInstance++
@@ -499,6 +499,7 @@ func (r *Replica) handlePrepare(prepare *paxosproto.Prepare) {
 }
 
 func (r *Replica) handleAccept(accept *paxosproto.Accept) {
+	log.Println("accepting")
 	inst := r.instanceSpace[accept.Instance]
 	var areply *paxosproto.AcceptReply
 
@@ -660,7 +661,6 @@ func (r *Replica) handlePrepareReply(preply *paxosproto.PrepareReply) {
 
 func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
 	inst := r.instanceSpace[areply.Instance]
-	log.Println("accepting")
 	if inst.status != PREPARED && inst.status != ACCEPTED {
 		// we've move on, these are delayed replies, so just ignore
 		return
@@ -832,7 +832,6 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			r.readData[readReply.ReadId] = nil
 			r.readProposal[readReply.ReadId] = nil
 		} else {
-			log.Println("pend")
 			r.readsPending[largestSlot] = readReply.ReadId
 		}
 	}
