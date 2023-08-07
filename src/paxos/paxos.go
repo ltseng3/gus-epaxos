@@ -832,7 +832,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			propreply := &genericsmrproto.ProposeReplyTS{
 				TRUE,
 				readReply.ReadId,
-				r.instanceSpace[largestSlot].cmds[0].Execute(r.State),
+				r.instanceSpace[largestSlot].cmds[0],
 				r.readProposal[readReply.ReadId].Timestamp}
 			r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
 
