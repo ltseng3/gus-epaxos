@@ -734,7 +734,7 @@ func (r *Replica) executeCommands() {
 						TRUE,
 						readId,
 						val,
-						-1}
+						r.readProposal[readId].Timestamp}
 					r.ReplyProposeTS(propreply, r.readProposal[readId].Reply)
 				}
 
@@ -820,7 +820,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 				TRUE,
 				readReply.ReadId,
 				0,
-				-1}
+				r.readProposal[readId].Timestamp}
 			r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
 			r.readProposal[readReply.ReadId] = nil
 			return
@@ -831,7 +831,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 				TRUE,
 				readReply.ReadId,
 				r.instanceSpace[largestSlot].cmds[0].Execute(r.State),
-				-1}
+				r.readProposal[readId].Timestamp}
 			r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
 
 			r.readProposal[readReply.ReadId] = nil
