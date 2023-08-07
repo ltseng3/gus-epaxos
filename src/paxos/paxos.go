@@ -270,6 +270,7 @@ func (r *Replica) run() {
 
 		case acceptReplyS := <-r.acceptReplyChan:
 			acceptReply := acceptReplyS.(*paxosproto.AcceptReply)
+			log.Println("replied to accept")
 			//got an Accept reply
 			dlog.Printf("Received AcceptReply for instance %d\n", acceptReply.Instance)
 			//r.handleAcceptReply(acceptReply)
@@ -499,7 +500,6 @@ func (r *Replica) handlePrepare(prepare *paxosproto.Prepare) {
 }
 
 func (r *Replica) handleAccept(accept *paxosproto.Accept) {
-	log.Println("accepting")
 	inst := r.instanceSpace[accept.Instance]
 	var areply *paxosproto.AcceptReply
 
