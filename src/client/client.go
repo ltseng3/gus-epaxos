@@ -158,6 +158,9 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo,
 	poissonGenerator := poisson.NewPoisson(*poissonAvg)
 
 	queuedReqs := 0 // The number of poisson departures that have been missed
+	if leader != 0 {
+		time.Sleep(10 * time.Second)
+	}
 	for id := int32(0); ; id++ {
 		args.CommandId = id
 
