@@ -230,6 +230,7 @@ func (r *Replica) run() {
 			break
 
 		case acceptS := <-r.acceptChan:
+			log.Println("Got accept")
 			accept := acceptS.(*paxosproto.Accept)
 			//got an Accept message
 			dlog.Printf("Received Accept from replica %d, for instance %d\n", accept.LeaderId, accept.Instance)
