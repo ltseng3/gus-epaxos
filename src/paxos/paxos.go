@@ -827,7 +827,9 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			return
 		}
 
+		r.mutex.Lock()
 		if largestSlot <= r.executedUpTo {
+			r.mutex.Unlock()
 			propreply := &genericsmrproto.ProposeReplyTS{
 				TRUE,
 				readReply.ReadId,
@@ -837,7 +839,6 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 
 			r.readProposal[readReply.ReadId] = nil
 		} else {
-			r.mutex.Lock()
 			r.readsPending[largestSlot] = r.readProposal[readReply.ReadId]
 			r.mutex.Unlock()
 		}
