@@ -45,6 +45,7 @@ type Replica struct {
 	Shutdown            bool
 	counter             int
 	flush               bool
+	acceptedUpTo        int32
 	committedUpTo       int32
 	executedUpTo        int32
 	readOKs             map[int32]int
@@ -95,6 +96,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		false,
 		0,
 		true,
+		-1,
 		-1,
 		-1,
 		map[int32]int{},
@@ -541,6 +543,9 @@ func (r *Replica) handleAccept(accept *paxosproto.Accept) {
 		r.sync()
 	}
 
+	if accept.Instance > r.acceptedUpTo {
+		r.acceptedUpTo = accept.Instance
+	}
 	r.replyAccept(accept.LeaderId, areply)
 }
 
@@ -779,7 +784,7 @@ func (r *Replica) bcastRead(readId int32) {
 func (r *Replica) handleRead(read *paxosproto.Read) {
 	var readReply *paxosproto.ReadReply
 	readReply = &paxosproto.ReadReply{
-		Instance: r.committedUpTo,
+		Instance: r.acceptedUpTo,
 		ReadId:   read.ReadId,
 	}
 	r.replyRead(read.RequesterId, readReply)
