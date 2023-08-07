@@ -429,6 +429,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 		//r.readProposal[propose.CommandId] = propose
 		//r.bcastRead(propose.CommandId)
 	} else {
+		log.Println("here5!!!")
 		for r.instanceSpace[r.crtInstance] != nil {
 			r.crtInstance++
 		}
