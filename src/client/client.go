@@ -150,7 +150,7 @@ func main() {
 }
 
 func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo, leader int) {
-	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 0}, 0 /* timestamp */}
+	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 1}, 0 /* timestamp */}
 	//args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 
 	conflictRand := rand.New(rand.NewSource(time.Now().UnixNano()))
