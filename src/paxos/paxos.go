@@ -420,7 +420,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	// got read command
 	if propose.Command.Op == state.GET {
 		r.readProposal[propose.CommandId] = propose
-		//r.bcastRead(propose.CommandId)
+		r.bcastRead(propose.CommandId)
 	} else {
 		for r.instanceSpace[r.crtInstance] != nil {
 			r.crtInstance++
@@ -660,7 +660,7 @@ func (r *Replica) handlePrepareReply(preply *paxosproto.PrepareReply) {
 
 func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
 	inst := r.instanceSpace[areply.Instance]
-
+	log.Println("accepting")
 	if inst.status != PREPARED && inst.status != ACCEPTED {
 		// we've move on, these are delayed replies, so just ignore
 		return
@@ -668,7 +668,6 @@ func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
 
 	if areply.OK == TRUE {
 		inst.lb.acceptOKs++
-		log.Println(inst.lb.acceptOKs)
 		if inst.lb.acceptOKs+1 > r.N>>1 {
 			inst = r.instanceSpace[areply.Instance]
 			inst.status = COMMITTED
