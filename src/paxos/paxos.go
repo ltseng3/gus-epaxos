@@ -290,6 +290,7 @@ func (r *Replica) makeUniqueBallot(ballot int32) int32 {
 }
 
 func (r *Replica) updateCommittedUpTo() {
+	log.Println("updating committed")
 	for r.instanceSpace[r.committedUpTo+1] != nil &&
 		r.instanceSpace[r.committedUpTo+1].status == COMMITTED {
 		r.committedUpTo++
@@ -805,7 +806,6 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 		largestSlot := r.readData[readReply.ReadId][0]
 
 		for _, reply := range r.readData[readReply.ReadId] {
-			log.Println("largest: ", reply)
 			if reply > largestSlot {
 				largestSlot = reply
 			}
