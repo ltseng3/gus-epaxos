@@ -668,6 +668,7 @@ func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
 
 	if areply.OK == TRUE {
 		inst.lb.acceptOKs++
+		log.Println(inst.lb.acceptOKs)
 		if inst.lb.acceptOKs+1 > r.N>>1 {
 			inst = r.instanceSpace[areply.Instance]
 			inst.status = COMMITTED
@@ -685,7 +686,6 @@ func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
 
 			r.recordInstanceMetadata(r.instanceSpace[areply.Instance])
 			r.sync() //is this necessary?
-			log.Println("committing soon")
 			r.updateCommittedUpTo()
 
 			r.bcastCommit(areply.Instance, inst.ballot, inst.cmds)
