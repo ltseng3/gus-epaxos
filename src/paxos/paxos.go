@@ -708,7 +708,7 @@ func (r *Replica) executeCommands() {
 		for i <= r.committedUpTo {
 			if r.instanceSpace[i].cmds != nil {
 				inst := r.instanceSpace[i]
-				val := 0
+				var val state.Value
 				for j := 0; j < len(inst.cmds); j++ {
 					val = inst.cmds[j].Execute(r.State)
 					if r.IsLeader && r.Dreply && inst.lb != nil && inst.lb.clientProposals != nil {
