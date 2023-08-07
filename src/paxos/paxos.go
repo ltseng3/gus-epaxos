@@ -268,7 +268,7 @@ func (r *Replica) run() {
 			acceptReply := acceptReplyS.(*paxosproto.AcceptReply)
 			//got an Accept reply
 			dlog.Printf("Received AcceptReply for instance %d\n", acceptReply.Instance)
-			r.handleAcceptReply(acceptReply)
+			//r.handleAcceptReply(acceptReply)
 			break
 
 		case readReplyS := <-r.readReplyChan:
@@ -419,9 +419,6 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	if propose.Command.Op == state.GET {
 		log.Println("got read")
 		r.readProposal[propose.CommandId] = propose
-		preply := &genericsmrproto.ProposeReplyTS{TRUE, propose.CommandId, 1, 0}
-		r.ReplyProposeTS(preply, propose.Reply)
-		return
 		r.bcastRead(propose.CommandId)
 	} else {
 		for r.instanceSpace[r.crtInstance] != nil {
@@ -747,7 +744,6 @@ func (r *Replica) bcastRead(readId int32) {
 	pr.RequesterId = r.Id
 	pr.ReadId = readId
 	args := &pr
-	//args := &paxosproto.Accept{r.Id, instance, ballot, command}
 
 	n := r.N - 1
 	if r.Thrifty {
@@ -770,7 +766,6 @@ func (r *Replica) bcastRead(readId int32) {
 
 // replica responds with highest slot accepted
 func (r *Replica) handleRead(read *paxosproto.Read) {
-	return
 	var readReply *paxosproto.ReadReply
 	readReply = &paxosproto.ReadReply{
 		Instance: r.committedUpTo,
