@@ -227,7 +227,6 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 			break
 		}
 		after := time.Now()
-		log.Println(reply.Value)
 		orInfo.sema.Release(1)
 
 		orInfo.Lock()
