@@ -422,7 +422,7 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	// got read command
 	if propose.Command.Op == state.GET {
-		log.Println("got read")
+		log.Println("got read ", propose.CommandId)
 		r.readProposal[propose.CommandId] = propose
 		r.bcastRead(propose.CommandId)
 	} else {
@@ -813,7 +813,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 				largestSlot = reply
 			}
 		}
-
+		log.Println("queueing ", readReply.ReadId)
 		r.readData[readReply.ReadId] = nil
 
 		if largestSlot == -1 {
