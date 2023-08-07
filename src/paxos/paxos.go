@@ -423,6 +423,9 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	// got read command
 	if propose.Command.Op == state.GET {
 		log.Println("here!!!")
+		log.Println("here2!!!")
+		log.Println("here3!!!")
+		log.Println("here4!!!")
 		//r.readProposal[propose.CommandId] = propose
 		//r.bcastRead(propose.CommandId)
 	} else {
