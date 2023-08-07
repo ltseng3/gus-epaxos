@@ -414,25 +414,14 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 
 func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	log.Println("! PROPOSE : ", propose.Command.Op == state.GET)
-	if !r.IsLeader {
-		preply := &genericsmrproto.ProposeReplyTS{FALSE, -1, state.NIL, 0}
-		r.ReplyProposeTS(preply, propose.Reply)
-		return
-	}
-
-	if propose.Command.Op != state.GET {
-		log.Println("pre write")
-	} else {
-		log.Println("pre read")
-	}
 
 	// got read command
 	if propose.Command.Op == state.GET {
-		log.Println("got read!!!")
+		log.Println("got read")
 		//r.readProposal[propose.CommandId] = propose
 		//r.bcastRead(propose.CommandId)
 	} else {
-		log.Println("got write!!!")
+		log.Println("got write")
 		for r.instanceSpace[r.crtInstance] != nil {
 			r.crtInstance++
 		}
