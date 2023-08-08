@@ -733,6 +733,7 @@ func (r *Replica) executeCommands() {
 				r.mutex.Unlock()
 				if ok {
 					for _, prop := range proposals {
+						log.Println("responding to read id, ", prop.CommandId)
 						propreply := &genericsmrproto.ProposeReplyTS{
 							TRUE,
 							prop.CommandId,
