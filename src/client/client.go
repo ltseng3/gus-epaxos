@@ -211,9 +211,9 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo,
 
 		orInfo.Lock()
 		if args.Command.Op == state.GET {
-			orInfo.isRead[id] = true
+			orInfo.isRead[args.CommandId] = true
 		}
-		orInfo.startTimes[id] = before
+		orInfo.startTimes[args.CommandId] = before
 		orInfo.Unlock()
 	}
 }
