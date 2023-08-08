@@ -108,7 +108,7 @@ func main() {
 	experimentStart := time.Now()
 
 	writeCutOff := int(*percentWrites * float64(*T))
-	for i := 0; i < *T; i++ {
+	for i := 0; i < *T; i++ { // i is later used as client's id
 		// automatically allocate clients equally
 		if *singleClusterTest {
 			if i < writeCutOff {
@@ -136,7 +136,7 @@ func main() {
 		//waitTime := startTime.Intn(3)
 		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
 
-		go simulatedClientWriter(writer, orInfo, leader)
+		go simulatedClientWriter(writer, orInfo, leader, i)
 		go simulatedClientReader(reader, orInfo, readings, leader)
 
 		orInfos[i] = orInfo
@@ -149,7 +149,7 @@ func main() {
 	}
 }
 
-func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo, leader int) {
+func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo, leader int, clientId int) {
 	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 1}, 0 /* timestamp */}
 	//args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 
@@ -159,7 +159,9 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo,
 
 	queuedReqs := 0 // The number of poisson departures that have been missed
 	for id := int32(0); ; id++ {
-		args.CommandId = id
+		// each client has unique command ids, where the last three digits
+		// are the client's id
+		args.CommandId = id*int32(1000) + int32(clientId)
 
 		// Determine key
 		if *conflicts >= 0 {
