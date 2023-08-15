@@ -107,17 +107,13 @@ func main() {
 	//startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
 	experimentStart := time.Now()
 
-	writeCutOff := int(*percentWrites * float64(*T))
 	for i := 0; i < *T; i++ { // i is later used as client's id
 		// automatically allocate clients equally
+		// automatically allocate clients equally
 		if *singleClusterTest {
-			if i < writeCutOff {
-				leader = 0
-			} else {
-				leader = (i % (len(rlReply.ReplicaList) - 1)) + 1
-			}
-
+			leader = i % len(rlReply.ReplicaList)
 		}
+
 		log.Println("Connected to node: ", leader)
 
 		server, err := net.Dial("tcp", rlReply.ReplicaList[leader])
@@ -177,7 +173,8 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo,
 		}
 
 		// Determine operation type
-		if leader == 0 {
+		randNumber := opRand.Float64()
+		if *percentWrites > randNumber {
 			if !*blindWrites {
 				args.Command.Op = state.PUT // write operation
 			} else {
