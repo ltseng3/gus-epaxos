@@ -152,6 +152,7 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo,
 	conflictRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	zipf := zipfian.NewZipfianGenerator(*zKeys, *theta)
 	poissonGenerator := poisson.NewPoisson(*poissonAvg)
+	opRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	queuedReqs := 0 // The number of poisson departures that have been missed
 	for id := int32(0); ; id++ {
