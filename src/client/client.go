@@ -70,7 +70,7 @@ func main() {
 	orInfos = make([]*outstandingRequestInfo, *T)
 
 	readings := make(chan *response, 100000)
-
+	replicaID := *serverPort - 7070
 	//startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
 	experimentStart := time.Now()
 
@@ -92,15 +92,14 @@ func main() {
 
 		//waitTime := startTime.Intn(3)
 		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
-		leaderID := *serverPort - 7070
 		go simulatedClientWriter(writer, orInfo, i)
-		go simulatedClientReader(reader, orInfo, readings, leaderID)
+		go simulatedClientReader(reader, orInfo, readings, replicaID)
 
 		orInfos[i] = orInfo
 	}
 
 	if *singleClusterTest {
-		printerMultipeFile(readings, len(rlReply.ReplicaList), experimentStart, rampDown, rampUp, timeout)
+		printerMultipeFile(readings, replicaID, experimentStart, rampDown, rampUp, timeout)
 	} else {
 		printer(readings)
 	}
