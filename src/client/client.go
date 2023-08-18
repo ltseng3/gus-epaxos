@@ -8,10 +8,8 @@ import (
 	"genericsmrproto"
 	"golang.org/x/sync/semaphore"
 	"log"
-	"masterproto"
 	"math/rand"
 	"net"
-	"net/rpc"
 	"os"
 	"poisson"
 	"runtime"
@@ -21,9 +19,8 @@ import (
 	"zipfian"
 )
 
-var masterAddr *string = flag.String("maddr", "", "Master address. Defaults to localhost")
-var masterPort *int = flag.Int("mport", 7087, "Master port.")
-var serverID *int = flag.Int("serverID", 0, "ID of client's server.")
+var serverAddr *string = flag.String("saddr", "", "Server address. Defaults to 10.10.1.1")
+var serverPort *int = flag.Int("sport", 7070, "Server port.")
 var procs *int = flag.Int("p", 2, "GOMAXPROCS.")
 var conflicts *int = flag.Int("c", 0, "Percentage of conflicts. If -1, uses Zipfian distribution.")
 var forceLeader = flag.Int("l", -1, "Force client to talk to a certain replica.")
@@ -72,48 +69,17 @@ func main() {
 
 	orInfos = make([]*outstandingRequestInfo, *T)
 
-	var master *rpc.Client
-	var err error
-	for {
-		master, err = rpc.DialHTTP("tcp", fmt.Sprintf("%s:%d", *masterAddr, *masterPort))
-		if err != nil {
-			log.Println("Error connecting to master", err)
-		} else {
-			break
-		}
-	}
-
-	rlReply := new(masterproto.GetReplicaListReply)
-	for !rlReply.Ready {
-		err := master.Call("Master.GetReplicaList", new(masterproto.GetReplicaListArgs), rlReply)
-		if err != nil {
-			log.Println("Error making the GetReplicaList RPC", err)
-		}
-	}
-
-	leader := 0
-	if *forceLeader < 0 {
-		reply := new(masterproto.GetLeaderReply)
-		if err = master.Call("Master.GetLeader", new(masterproto.GetLeaderArgs), reply); err != nil {
-			log.Println("Error making the GetLeader RPC:", err)
-		}
-		leader = reply.LeaderId
-	} else {
-		leader = *forceLeader
-	}
-	log.Printf("The leader is replica %d\n", leader)
-
 	readings := make(chan *response, 100000)
 
 	//startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
 	experimentStart := time.Now()
 
 	for i := 0; i < *T; i++ { // i is later used as client's id
-		log.Println("Connected to node: ", *serverID)
+		log.Println("Connected to node: ", *serverAddr)
 
-		server, err := net.Dial("tcp", rlReply.ReplicaList[*serverID])
+		server, err := net.Dial("tcp", fmt.Sprintf("%s:%d", *serverAddr, *serverPort))
 		if err != nil {
-			log.Fatalf("Error connecting to replica %d\n", *serverID)
+			log.Fatalf("Error connecting to replica %s:%d\n", *serverAddr, *serverPort)
 		}
 		reader := bufio.NewReader(server)
 		writer := bufio.NewWriter(server)
@@ -126,9 +92,9 @@ func main() {
 
 		//waitTime := startTime.Intn(3)
 		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
-
-		go simulatedClientWriter(writer, orInfo, *serverID, i)
-		go simulatedClientReader(reader, orInfo, readings, *serverID)
+		leaderID := *serverPort - 7070
+		go simulatedClientWriter(writer, orInfo, i)
+		go simulatedClientReader(reader, orInfo, readings, leaderID)
 
 		orInfos[i] = orInfo
 	}
@@ -140,7 +106,7 @@ func main() {
 	}
 }
 
-func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo, leader int, clientId int) {
+func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo, clientId int) {
 	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 1}, 0 /* timestamp */}
 	//args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 
@@ -303,31 +269,26 @@ func printer(readings chan *response) {
 	}
 }
 
-func printerMultipeFile(readings chan *response, numLeader int, experimentStart time.Time, rampDown, rampUp, timeout *int) {
+func printerMultipeFile(readings chan *response, replicaID int, experimentStart time.Time, rampDown, rampUp, timeout *int) {
 	lattputFile, err := os.Create("lattput.txt")
 	if err != nil {
 		log.Println("Error creating lattput file", err)
 		return
 	}
 
-	latFileRead := make([]*os.File, numLeader)
-	latFileWrite := make([]*os.File, numLeader)
+	fileName := fmt.Sprintf("latFileRead-%d.txt", replicaID)
+	latFileRead, err := os.Create(fileName)
+	if err != nil {
+		log.Println("Error creating latency file", err)
+		return
+	}
+	//latFile.WriteString("# time (ns), latency, commit latency\n")
 
-	for i := 0; i < numLeader; i++ {
-		fileName := fmt.Sprintf("latFileRead-%d.txt", i)
-		latFileRead[i], err = os.Create(fileName)
-		if err != nil {
-			log.Println("Error creating latency file", err)
-			return
-		}
-		//latFile.WriteString("# time (ns), latency, commit latency\n")
-
-		fileName = fmt.Sprintf("latFileWrite-%d.txt", i)
-		latFileWrite[i], err = os.Create(fileName)
-		if err != nil {
-			log.Println("Error creating latency file", err)
-			return
-		}
+	fileName = fmt.Sprintf("latFileWrite-%d.txt", replicaID)
+	latFileWrite, err := os.Create(fileName)
+	if err != nil {
+		log.Println("Error creating latency file", err)
+		return
 	}
 
 	startTime := time.Now()
@@ -345,9 +306,9 @@ func printerMultipeFile(readings chan *response, numLeader int, experimentStart 
 			// Log all to latency file if they are not within the ramp up or ramp down period.
 			if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout-*rampDown {
 				if resp.isRead {
-					latFileRead[resp.replicaID].WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+					latFileRead.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
 				} else {
-					latFileWrite[resp.replicaID].WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+					latFileWrite.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
 				}
 				sum += resp.rtt
 				commitSum += resp.commitLatency
