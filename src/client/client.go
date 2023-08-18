@@ -23,6 +23,7 @@ import (
 
 var masterAddr *string = flag.String("maddr", "", "Master address. Defaults to localhost")
 var masterPort *int = flag.Int("mport", 7087, "Master port.")
+var serverID *int = flag.Int("serverID", 0, "ID of client's server.")
 var procs *int = flag.Int("p", 2, "GOMAXPROCS.")
 var conflicts *int = flag.Int("c", 0, "Percentage of conflicts. If -1, uses Zipfian distribution.")
 var forceLeader = flag.Int("l", -1, "Force client to talk to a certain replica.")
@@ -108,17 +109,11 @@ func main() {
 	experimentStart := time.Now()
 
 	for i := 0; i < *T; i++ { // i is later used as client's id
-		// automatically allocate clients equally
-		// automatically allocate clients equally
-		if *singleClusterTest {
-			leader = i % len(rlReply.ReplicaList)
-		}
+		log.Println("Connected to node: ", *serverID)
 
-		log.Println("Connected to node: ", leader)
-
-		server, err := net.Dial("tcp", rlReply.ReplicaList[leader])
+		server, err := net.Dial("tcp", rlReply.ReplicaList[*serverID])
 		if err != nil {
-			log.Fatalf("Error connecting to replica %d\n", leader)
+			log.Fatalf("Error connecting to replica %d\n", *serverID)
 		}
 		reader := bufio.NewReader(server)
 		writer := bufio.NewWriter(server)
@@ -132,8 +127,8 @@ func main() {
 		//waitTime := startTime.Intn(3)
 		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
 
-		go simulatedClientWriter(writer, orInfo, leader, i)
-		go simulatedClientReader(reader, orInfo, readings, leader)
+		go simulatedClientWriter(writer, orInfo, *serverID, i)
+		go simulatedClientReader(reader, orInfo, readings, *serverID)
 
 		orInfos[i] = orInfo
 	}
