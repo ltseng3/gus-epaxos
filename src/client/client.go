@@ -21,6 +21,7 @@ import (
 
 var serverAddr *string = flag.String("saddr", "", "Server address. Defaults to 10.10.1.1")
 var serverPort *int = flag.Int("sport", 7070, "Server port.")
+var serverID *int = flag.Int("serverID", 0, "Server's ID")
 var procs *int = flag.Int("p", 2, "GOMAXPROCS.")
 var conflicts *int = flag.Int("c", 0, "Percentage of conflicts. If -1, uses Zipfian distribution.")
 var forceLeader = flag.Int("l", -1, "Force client to talk to a certain replica.")
@@ -70,7 +71,6 @@ func main() {
 	orInfos = make([]*outstandingRequestInfo, *T)
 
 	readings := make(chan *response, 100000)
-	replicaID := *serverPort - 7070
 	//startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
 	experimentStart := time.Now()
 
@@ -93,13 +93,13 @@ func main() {
 		//waitTime := startTime.Intn(3)
 		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
 		go simulatedClientWriter(writer, orInfo, i)
-		go simulatedClientReader(reader, orInfo, readings, replicaID)
+		go simulatedClientReader(reader, orInfo, readings, *serverID)
 
 		orInfos[i] = orInfo
 	}
 
 	if *singleClusterTest {
-		printerMultipeFile(readings, replicaID, experimentStart, rampDown, rampUp, timeout)
+		printerMultipeFile(readings, *serverID, experimentStart, rampDown, rampUp, timeout)
 	} else {
 		printer(readings)
 	}
