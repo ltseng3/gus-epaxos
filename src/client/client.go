@@ -99,7 +99,7 @@ func main() {
 	}
 
 	if *singleClusterTest {
-		printerMultipeFile(readings, *serverID, experimentStart, rampDown, rampUp, timeout)
+		printerMultipleFile(readings, *serverID, experimentStart, rampDown, rampUp, timeout)
 	} else {
 		printer(readings)
 	}
@@ -268,7 +268,7 @@ func printer(readings chan *response) {
 	}
 }
 
-func printerMultipeFile(readings chan *response, replicaID int, experimentStart time.Time, rampDown, rampUp, timeout *int) {
+func printerMultipleFile(readings chan *response, replicaID int, experimentStart time.Time, rampDown, rampUp, timeout *int) {
 	lattputFile, err := os.Create("lattput.txt")
 	if err != nil {
 		log.Println("Error creating lattput file", err)
