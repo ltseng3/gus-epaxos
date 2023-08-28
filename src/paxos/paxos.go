@@ -422,7 +422,6 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 }
 
 func (r *Replica) handlePropose(propose *genericsmr.Propose) {
-	log.Println("got proposal: ", propose.Command.Op)
 	// got read command
 	if propose.Command.Op == state.GET {
 		r.readProposal[propose.CommandId] = propose
@@ -557,7 +556,6 @@ func (r *Replica) handleAccept(accept *paxosproto.Accept) {
 
 func (r *Replica) handleCommit(commit *paxosproto.Commit) {
 	inst := r.instanceSpace[commit.Instance]
-	log.Println("committing")
 
 	dlog.Printf("Committing instance %d\n", commit.Instance)
 	if inst == nil {
@@ -588,7 +586,6 @@ func (r *Replica) handleCommitShort(commit *paxosproto.CommitShort) {
 	inst := r.instanceSpace[commit.Instance]
 
 	dlog.Printf("Committing instance %d\n", commit.Instance)
-	log.Println("commit short")
 
 	if inst == nil {
 		r.instanceSpace[commit.Instance] = &Instance{nil,
@@ -677,7 +674,6 @@ func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
 			inst = r.instanceSpace[areply.Instance]
 			inst.status = COMMITTED
 			if inst.lb.clientProposals != nil && !r.Dreply {
-				log.Println("rep now, no commit")
 				// give client the all clear
 				for i := 0; i < len(inst.cmds); i++ {
 					propreply := &genericsmrproto.ProposeReplyTS{
@@ -736,7 +732,6 @@ func (r *Replica) executeCommands() {
 				r.readsPending[i] = nil
 				r.mutex.Unlock()
 				if ok {
-					log.Println("replying read")
 					for _, prop := range proposals {
 						propreply := &genericsmrproto.ProposeReplyTS{
 							TRUE,
@@ -838,7 +833,6 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 		r.mutex.Lock()
 		if largestSlot <= r.executedUpTo {
 			r.mutex.Unlock()
-			log.Println("read replying 2")
 			propreply := &genericsmrproto.ProposeReplyTS{
 				TRUE,
 				readReply.ReadId,
