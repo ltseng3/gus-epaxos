@@ -101,11 +101,11 @@ func main() {
 			lReader := bufio.NewReader(leader)
 			lWriter := bufio.NewWriter(leader)
 
-			go simulatedClientWriter(writer, lWriter /* leader writer*/, orInfo, *serverID)
+			go simulatedClientWriter(writer, lWriter /* leader writer*/, orInfo, i, *serverID)
 			go simulatedClientReader(lReader, orInfo, readings, *serverID)
 			go simulatedClientReader(reader, orInfo, readings, *serverID)
 		} else {
-			go simulatedClientWriter(writer, nil /* leader writer*/, orInfo, *serverID)
+			go simulatedClientWriter(writer, nil /* leader writer*/, orInfo, i, *serverID)
 			go simulatedClientReader(reader, orInfo, readings, *serverID)
 		}
 		//waitTime := startTime.Intn(3)
@@ -121,7 +121,7 @@ func main() {
 	}
 }
 
-func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *outstandingRequestInfo, clientId int) {
+func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *outstandingRequestInfo, clientId int, serverID int) {
 	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 1}, 0 /* timestamp */}
 	//args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 
