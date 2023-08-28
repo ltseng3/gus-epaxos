@@ -556,7 +556,7 @@ func (r *Replica) handleCommit(commit *paxosproto.Commit) {
 	inst := r.instanceSpace[commit.Instance]
 
 	dlog.Printf("Committing instance %d\n", commit.Instance)
-
+	log.Println("Committing")
 	if inst == nil {
 		r.instanceSpace[commit.Instance] = &Instance{
 			commit.Command,
@@ -732,6 +732,7 @@ func (r *Replica) executeCommands() {
 				r.readsPending[i] = nil
 				r.mutex.Unlock()
 				if ok {
+					log.Println("replying read")
 					for _, prop := range proposals {
 						propreply := &genericsmrproto.ProposeReplyTS{
 							TRUE,
