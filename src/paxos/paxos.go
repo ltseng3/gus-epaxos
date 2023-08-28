@@ -557,7 +557,6 @@ func (r *Replica) handleCommit(commit *paxosproto.Commit) {
 	inst := r.instanceSpace[commit.Instance]
 
 	dlog.Printf("Committing instance %d\n", commit.Instance)
-	log.Println("Committing")
 	if inst == nil {
 		r.instanceSpace[commit.Instance] = &Instance{
 			commit.Command,
@@ -663,12 +662,12 @@ func (r *Replica) handlePrepareReply(preply *paxosproto.PrepareReply) {
 }
 
 func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
+	log.Println("accepting")
 	inst := r.instanceSpace[areply.Instance]
 	if inst.status != PREPARED && inst.status != ACCEPTED {
 		// we've move on, these are delayed replies, so just ignore
 		return
 	}
-
 	if areply.OK == TRUE {
 		inst.lb.acceptOKs++
 		if inst.lb.acceptOKs+1 > r.N>>1 {
@@ -835,6 +834,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 		r.mutex.Lock()
 		if largestSlot <= r.executedUpTo {
 			r.mutex.Unlock()
+			log.Println("read replying 2")
 			propreply := &genericsmrproto.ProposeReplyTS{
 				TRUE,
 				readReply.ReadId,
