@@ -19,7 +19,9 @@ import (
 	"zipfian"
 )
 
-var serverAddr *string = flag.String("saddr", "", "Server address. Defaults to 10.10.1.1")
+var leaderAddr *string = flag.String("laddr", "10.10.1.2", "Leader address. Defaults to 10.10.1.2")
+var leaderPort *int = flag.Int("lport", 7070, "Leader port.")
+var serverAddr *string = flag.String("saddr", "", "Server address.")
 var serverPort *int = flag.Int("sport", 7070, "Server port.")
 var serverID *int = flag.Int("serverID", 0, "Server's ID")
 var procs *int = flag.Int("p", 2, "GOMAXPROCS.")
@@ -90,10 +92,24 @@ func main() {
 			make(map[int32]time.Time, *outstandingReqs),
 			make(map[int32]bool, *outstandingReqs)}
 
+		if *serverID !=  { // not already connected to leader
+			leader, err := net.Dial("tcp", fmt.Sprintf("%s:%d", *leaderAddr, *leaderPort))
+			if err != nil {
+				log.Fatalf("Error connecting to replica %s:%d\n", *leaderAddr, *leaderPort)
+			}
+
+			lReader := bufio.NewReader(leader)
+			lWriter := bufio.NewWriter(leader)
+
+			go simulatedClientWriter(writer, lWriter /* leader writer*/, orInfo, *serverID)
+			go simulatedClientReader(lReader, orInfo, readings, *serverID)
+			go simulatedClientReader(reader, orInfo, readings, *serverID)
+		} else {
+			go simulatedClientWriter(writer, nil /* leader writer*/, orInfo, *serverID)
+			go simulatedClientReader(reader, orInfo, readings, *serverID)
+		}
 		//waitTime := startTime.Intn(3)
 		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
-		go simulatedClientWriter(writer, orInfo, i)
-		go simulatedClientReader(reader, orInfo, readings, *serverID)
 
 		orInfos[i] = orInfo
 	}
@@ -105,7 +121,7 @@ func main() {
 	}
 }
 
-func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo, clientId int) {
+func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *outstandingRequestInfo, clientId int) {
 	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 1}, 0 /* timestamp */}
 	//args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 
@@ -161,12 +177,16 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo,
 				queuedReqs += 1
 			}
 		}
-		log.Println("writing")
-
 		before := time.Now()
-		writer.WriteByte(genericsmrproto.PROPOSE)
-		args.Marshal(writer)
-		writer.Flush()
+		if args.Command.Op == state.PUT && serverID != 0 { // send RMWs to leader
+			lWriter.WriteByte(genericsmrproto.PROPOSE)
+			args.Marshal(lWriter)
+			lWriter.Flush()
+		} else {
+			writer.WriteByte(genericsmrproto.PROPOSE)
+			args.Marshal(writer)
+			writer.Flush()
+		}
 
 		orInfo.Lock()
 		if args.Command.Op == state.GET {
