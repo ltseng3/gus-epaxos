@@ -92,7 +92,7 @@ func main() {
 			make(map[int32]time.Time, *outstandingReqs),
 			make(map[int32]bool, *outstandingReqs)}
 
-		if *serverID !=  { // not already connected to leader
+		if *serverID != 0 { // not already connected to leader
 			leader, err := net.Dial("tcp", fmt.Sprintf("%s:%d", *leaderAddr, *leaderPort))
 			if err != nil {
 				log.Fatalf("Error connecting to replica %s:%d\n", *leaderAddr, *leaderPort)
