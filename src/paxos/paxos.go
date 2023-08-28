@@ -555,6 +555,7 @@ func (r *Replica) handleAccept(accept *paxosproto.Accept) {
 
 func (r *Replica) handleCommit(commit *paxosproto.Commit) {
 	inst := r.instanceSpace[commit.Instance]
+	log.Println("committing")
 
 	dlog.Printf("Committing instance %d\n", commit.Instance)
 	if inst == nil {
@@ -585,6 +586,7 @@ func (r *Replica) handleCommitShort(commit *paxosproto.CommitShort) {
 	inst := r.instanceSpace[commit.Instance]
 
 	dlog.Printf("Committing instance %d\n", commit.Instance)
+	log.Println("commit short")
 
 	if inst == nil {
 		r.instanceSpace[commit.Instance] = &Instance{nil,
