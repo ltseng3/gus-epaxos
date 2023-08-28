@@ -373,6 +373,8 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 			log.Println("Commit bcast failed:", err)
 		}
 	}()
+
+	log.Println("bcasting commit")
 	pc.LeaderId = r.Id
 	pc.Instance = instance
 	pc.Ballot = ballot
@@ -664,7 +666,6 @@ func (r *Replica) handlePrepareReply(preply *paxosproto.PrepareReply) {
 }
 
 func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
-	log.Println("accepting")
 	inst := r.instanceSpace[areply.Instance]
 	if inst.status != PREPARED && inst.status != ACCEPTED {
 		// we've move on, these are delayed replies, so just ignore
@@ -676,6 +677,7 @@ func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
 			inst = r.instanceSpace[areply.Instance]
 			inst.status = COMMITTED
 			if inst.lb.clientProposals != nil && !r.Dreply {
+				log.Println("rep now, no commit")
 				// give client the all clear
 				for i := 0; i < len(inst.cmds); i++ {
 					propreply := &genericsmrproto.ProposeReplyTS{
