@@ -374,7 +374,6 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 		}
 	}()
 
-	log.Println("bcasting commit")
 	pc.LeaderId = r.Id
 	pc.Instance = instance
 	pc.Ballot = ballot
