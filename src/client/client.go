@@ -134,7 +134,7 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 	for id := int32(0); ; id++ {
 		// each client has unique command ids, where the last three digits
 		// are the client's id
-		args.CommandId = id*int32(1000) + int32(clientId*(serverID+1))
+		args.CommandId = id*int32(1000) + int32(clientId+1*(serverID+1))
 		log.Println("sending msg: ", args.CommandId)
 
 		// Determine key
