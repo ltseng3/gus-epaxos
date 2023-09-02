@@ -732,6 +732,7 @@ func (r *Replica) executeCommands() {
 				r.mutex.Unlock()
 				if ok {
 					for _, prop := range proposals {
+						log.Println("responding late")
 						propreply := &genericsmrproto.ProposeReplyTS{
 							TRUE,
 							prop.CommandId,
@@ -817,14 +818,14 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 		}
 
 		r.readData[readReply.ReadId] = nil
-
+		log.Println("quorum ready")
 		if largestSlot == -1 {
+			log.Println("responding early")
 			propreply := &genericsmrproto.ProposeReplyTS{
 				TRUE,
 				readReply.ReadId,
 				0,
 				r.readProposal[readReply.ReadId].Timestamp}
-			log.Println("-1, sending: ")
 			r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
 			r.readProposal[readReply.ReadId] = nil
 			return
@@ -833,6 +834,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 		r.mutex.Lock()
 		if largestSlot <= r.executedUpTo {
 			r.mutex.Unlock()
+			log.Println("responding on time")
 			propreply := &genericsmrproto.ProposeReplyTS{
 				TRUE,
 				readReply.ReadId,
