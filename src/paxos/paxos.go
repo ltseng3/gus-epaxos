@@ -799,7 +799,7 @@ func (r *Replica) handleRead(read *paxosproto.Read) {
 // pick the highest accepted slot, respond to client
 func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 	// if quorom has already been received, return
-	if r.readOKs[readReply.ReadId]+1 > r.N>>1 {
+	if r.readOKs[readReply.ReadId] > r.N>>1-1 {
 		return
 	}
 
