@@ -195,6 +195,7 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 		}
 		orInfo.startTimes[args.CommandId] = before
 		orInfo.Unlock()
+		time.Sleep(1 * time.Second)
 	}
 }
 
