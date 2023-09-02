@@ -799,10 +799,14 @@ func (r *Replica) handleRead(read *paxosproto.Read) {
 
 // pick the highest accepted slot, respond to client
 func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
+	log.Println("pre-read; id: ", readReply.ReadId)
+
 	// if quorom has already been received, return
 	if r.readOKs[readReply.ReadId] == r.N>>1 {
 		return
 	}
+
+	log.Println("pre-quorum; id: ", readReply.ReadId)
 
 	r.readOKs[readReply.ReadId]++
 	r.readData[readReply.ReadId] = append(r.readData[readReply.ReadId], readReply.Instance)
@@ -843,6 +847,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 
 			r.readProposal[readReply.ReadId] = nil
 		} else {
+			log.Println("sending to wait; id: ", readReply.ReadId)
 			r.readsPending[largestSlot] = append(
 				r.readsPending[largestSlot],
 				r.readProposal[readReply.ReadId])
