@@ -63,6 +63,7 @@ const (
 	PREPARED
 	ACCEPTED
 	COMMITTED
+	READ_FINISHED
 )
 
 type Instance struct {
@@ -799,7 +800,7 @@ func (r *Replica) handleRead(read *paxosproto.Read) {
 // pick the highest accepted slot, respond to client
 func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 	// if quorom has already been received, return
-	if r.readOKs[readReply.ReadId] > r.N>>1-1 {
+	if r.instanceSpace[readReply.Instance].status == READ_FINISHED {
 		return
 	}
 
@@ -808,6 +809,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 
 	// Wait for a majority of acknowledgements
 	if r.readOKs[readReply.ReadId]+1 > r.N>>1 {
+		r.instanceSpace[readReply.Instance].status = READ_FINISHED
 		largestSlot := r.readData[readReply.ReadId][0]
 
 		for _, reply := range r.readData[readReply.ReadId] {
