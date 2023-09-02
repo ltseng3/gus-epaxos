@@ -767,13 +767,13 @@ func (r *Replica) bcastRead(readId int32) {
 	pr.ReadId = readId
 	args := &pr
 
-	n := r.N - 1
+	replicaCount := r.N - 1
 	if r.Thrifty {
-		n = r.N >> 1
+		replicaCount = r.N >> 1
 	}
 	q := r.Id
 
-	for sent := 0; sent < n; {
+	for sent := 0; sent < replicaCount; sent++ {
 		q = (q + 1) % int32(r.N)
 		if q == r.Id {
 			break
@@ -781,7 +781,6 @@ func (r *Replica) bcastRead(readId int32) {
 		if !r.Alive[q] {
 			continue
 		}
-		sent++
 		r.SendMsg(q, r.readRPC, args)
 	}
 }
@@ -807,7 +806,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 	r.readData[readReply.ReadId] = append(r.readData[readReply.ReadId], readReply.Instance)
 
 	// Wait for a majority of acknowledgements
-	if r.readOKs[readReply.ReadId] > r.N>>1 {
+	if r.readOKs[readReply.ReadId]+1 > r.N>>1 {
 		largestSlot := r.readData[readReply.ReadId][0]
 
 		for _, reply := range r.readData[readReply.ReadId] {
