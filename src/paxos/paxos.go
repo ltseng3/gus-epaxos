@@ -767,13 +767,13 @@ func (r *Replica) bcastRead(readId int32) {
 	pr.ReadId = readId
 	args := &pr
 
-	replicaCount := r.N - 1
+	n := r.N - 1
 	if r.Thrifty {
-		replicaCount = r.N >> 1
+		n = r.N >> 1
 	}
 	q := r.Id
 
-	for sent := 0; sent < replicaCount; sent++ {
+	for sent := 0; sent < n; {
 		q = (q + 1) % int32(r.N)
 		if q == r.Id {
 			break
@@ -781,6 +781,7 @@ func (r *Replica) bcastRead(readId int32) {
 		if !r.Alive[q] {
 			continue
 		}
+		sent++
 		r.SendMsg(q, r.readRPC, args)
 	}
 }
