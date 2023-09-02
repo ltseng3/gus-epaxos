@@ -135,6 +135,7 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 		// each client has unique command ids, where the last three digits
 		// are the client's id
 		args.CommandId = id*int32(1000) + int32(clientId)
+		log.Println("sending msg")
 
 		// Determine key
 		if *conflicts >= 0 {
