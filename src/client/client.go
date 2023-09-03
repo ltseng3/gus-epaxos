@@ -135,7 +135,6 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 		// each client has unique command ids, where the last three digits
 		// are the client's id
 		args.CommandId = id*int32(1000) + int32(clientId+1*(serverID+1))
-		log.Println("sending msg: ", args.CommandId)
 
 		// Determine key
 		if *conflicts >= 0 {
@@ -178,6 +177,8 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 				queuedReqs += 1
 			}
 		}
+		log.Println("sending msg: ", args.CommandId, " type: ", args.Command.Op)
+
 		before := time.Now()
 		if args.Command.Op == state.PUT && serverID != 0 { // send RMWs to leader
 			lWriter.WriteByte(genericsmrproto.PROPOSE)
