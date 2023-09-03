@@ -673,6 +673,7 @@ func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
 		if inst.lb.acceptOKs+1 > r.N>>1 {
 			inst = r.instanceSpace[areply.Instance]
 			inst.status = COMMITTED
+			log.Println("Completed write for: ", inst.lb.clientProposals[0].CommandId)
 			if inst.lb.clientProposals != nil && !r.Dreply {
 				// give client the all clear
 				for i := 0; i < len(inst.cmds); i++ {
@@ -715,6 +716,7 @@ func (r *Replica) executeCommands() {
 				for j := 0; j < len(inst.cmds); j++ {
 					val = inst.cmds[j].Execute(r.State)
 					if r.IsLeader && r.Dreply && inst.lb != nil && inst.lb.clientProposals != nil {
+						log.Println("replying for write: ", inst.lb.clientProposals[j].CommandId)
 						propreply := &genericsmrproto.ProposeReplyTS{
 							TRUE,
 							inst.lb.clientProposals[j].CommandId,
