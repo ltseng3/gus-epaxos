@@ -424,6 +424,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	// got read command
 	if propose.Command.Op == state.GET {
 		r.readProposal[propose.CommandId] = propose
+		log.Println("will be broadcasting: ", propose.CommandId)
 		r.bcastRead(propose.CommandId)
 	} else {
 		for r.instanceSpace[r.crtInstance] != nil {
@@ -794,6 +795,7 @@ func (r *Replica) handleRead(read *paxosproto.Read) {
 		Instance: r.acceptedUpTo,
 		ReadId:   read.ReadId,
 	}
+	log.Println("replying to read request for id: ", read.ReadId)
 	r.replyRead(read.RequesterId, readReply)
 }
 
