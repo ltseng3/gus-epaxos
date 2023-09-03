@@ -220,7 +220,7 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 		rtt := (after.Sub(before)).Seconds() * 1000
 		//commitToExec := float64(reply.Timestamp) / 1e6
 		commitLatency := float64(0) //rtt - commitToExec
-
+		log.Println("received: ", reply.CommandId)
 		readings <- &response{
 			after,
 			rtt,
