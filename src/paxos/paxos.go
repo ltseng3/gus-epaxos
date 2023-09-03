@@ -710,11 +710,14 @@ func (r *Replica) executeCommands() {
 		executed := false
 
 		for i <= r.committedUpTo {
+			log.Println("i: ", i, " commitedUpTo: ", r.committedUpTo)
 			if r.instanceSpace[i].cmds != nil {
 				inst := r.instanceSpace[i]
 				var val state.Value
 				for j := 0; j < len(inst.cmds); j++ {
+					log.Println("length of cmds: ", len(inst.cmds))
 					val = inst.cmds[j].Execute(r.State)
+					log.Println("is leader? : ", r.IsLeader, " ; dReply? : ", r.Dreply, " ; lb nil? : ", inst.lb == nil, " ; proposals nil? : ", inst.lb.clientProposals == nil)
 					if r.IsLeader && r.Dreply && inst.lb != nil && inst.lb.clientProposals != nil {
 						log.Println("replying for write: ", inst.lb.clientProposals[j].CommandId)
 						propreply := &genericsmrproto.ProposeReplyTS{
