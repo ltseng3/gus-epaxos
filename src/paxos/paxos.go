@@ -206,6 +206,7 @@ func (r *Replica) run() {
 	if r.Id == 0 {
 		r.IsLeader = true
 	}
+	log.Println("Am I the leader? :,", r.IsLeader)
 
 	clockChan = make(chan bool, 1)
 	go r.clock()
@@ -689,7 +690,6 @@ func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
 			r.recordInstanceMetadata(r.instanceSpace[areply.Instance])
 			r.sync() //is this necessary?
 			r.updateCommittedUpTo()
-
 			r.bcastCommit(areply.Instance, inst.ballot, inst.cmds)
 		}
 	} else {
