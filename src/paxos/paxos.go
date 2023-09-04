@@ -717,10 +717,6 @@ func (r *Replica) executeCommands() {
 				for j := 0; j < len(inst.cmds); j++ {
 					//log.Println("length of cmds: ", len(inst.cmds))
 					val = inst.cmds[j].Execute(r.State)
-					log.Println("is leader? : ", r.IsLeader)
-					log.Println(" ; dReply? : ", r.Dreply)
-					log.Println(" ; lb nil? : ", inst.lb == nil)
-					log.Println(" ; inst.lb.clientProposals? :  ", inst.lb.clientProposals == nil)
 					if r.IsLeader && r.Dreply && inst.lb != nil && inst.lb.clientProposals != nil {
 						log.Println("replying for write: ", inst.lb.clientProposals[j].CommandId)
 						propreply := &genericsmrproto.ProposeReplyTS{
