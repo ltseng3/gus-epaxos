@@ -177,7 +177,6 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 				queuedReqs += 1
 			}
 		}
-		log.Println("sending msg: ", args.CommandId, " type: ", args.Command.Op)
 
 		before := time.Now()
 		if args.Command.Op == state.PUT && serverID != 0 { // send RMWs to leader
@@ -196,7 +195,6 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 		}
 		orInfo.startTimes[args.CommandId] = before
 		orInfo.Unlock()
-		time.Sleep(500 * time.Millisecond)
 	}
 }
 
@@ -221,7 +219,6 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 		rtt := (after.Sub(before)).Seconds() * 1000
 		//commitToExec := float64(reply.Timestamp) / 1e6
 		commitLatency := float64(0) //rtt - commitToExec
-		log.Println("received: ", reply.CommandId)
 		readings <- &response{
 			after,
 			rtt,
