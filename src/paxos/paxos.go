@@ -715,9 +715,9 @@ func (r *Replica) executeCommands() {
 				inst := r.instanceSpace[i]
 				var val state.Value
 				for j := 0; j < len(inst.cmds); j++ {
-					log.Println("length of cmds: ", len(inst.cmds))
+					//log.Println("length of cmds: ", len(inst.cmds))
 					val = inst.cmds[j].Execute(r.State)
-					log.Println("is leader? : ", r.IsLeader, " ; dReply? : ", r.Dreply, " ; lb nil? : ", inst.lb == nil, " ; proposals nil? : ", inst.lb.clientProposals == nil)
+					//log.Println("is leader? : ", r.IsLeader, " ; dReply? : ", r.Dreply, " ; lb nil? : ", inst.lb == nil)
 					if r.IsLeader && r.Dreply && inst.lb != nil && inst.lb.clientProposals != nil {
 						log.Println("replying for write: ", inst.lb.clientProposals[j].CommandId)
 						propreply := &genericsmrproto.ProposeReplyTS{
@@ -732,10 +732,10 @@ func (r *Replica) executeCommands() {
 				executed = true
 
 				// reply to pending read request after execution
-				r.mutex.Lock()
+				//r.mutex.Lock()
 				proposals, ok := r.readsPending[i]
 				r.readsPending[i] = nil
-				r.mutex.Unlock()
+				//r.mutex.Unlock()
 				if ok {
 					for _, prop := range proposals {
 						log.Println("responding late; id: ", prop.CommandId)
@@ -841,9 +841,9 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			return
 		}
 
-		r.mutex.Lock()
+		//r.mutex.Lock()
 		if largestSlot <= r.executedUpTo {
-			r.mutex.Unlock()
+			//r.mutex.Unlock()
 			log.Println("responding on time; id: ", readReply.ReadId)
 			propreply := &genericsmrproto.ProposeReplyTS{
 				TRUE,
@@ -858,7 +858,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			r.readsPending[largestSlot] = append(
 				r.readsPending[largestSlot],
 				r.readProposal[readReply.ReadId])
-			r.mutex.Unlock()
+			//r.mutex.Unlock()
 		}
 	}
 }
