@@ -102,7 +102,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		map[int32]int{},
 		map[int32][]int32{},
 		map[int32]*genericsmr.Propose{},
-		make([][]*genericsmr.Propose, 150*1024*1024),
+		make([][]*genericsmr.Propose, 1024*1024*1024),
 	}
 
 	r.Durable = durable
