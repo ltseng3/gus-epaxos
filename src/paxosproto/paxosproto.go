@@ -54,6 +54,35 @@ type CommitShort struct {
 	Ballot   int32
 }
 
+type RMWGet struct {
+	LeaderId int32
+	Instance int32
+	Ballot   int32
+	Command  []state.Command
+}
+
+type RMWGetReply struct {
+	Instance int32
+	Ballot   int32
+	Key      int
+	Payload  Payload
+}
+
+type RMWSet struct {
+	LeaderId int32
+	Instance int32
+	Ballot   int32
+	Command  []state.Command
+	Key      int
+	Payload  Payload
+}
+
+type RMWSetReply struct {
+	Instance int32
+	OK       uint8
+	Ballot   int32
+}
+
 type Read struct {
 	RequesterId int32
 	ReadId      int32
