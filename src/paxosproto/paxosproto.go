@@ -65,7 +65,7 @@ type RMWGetReply struct {
 	Instance int32
 	Ballot   int32
 	Key      int
-	Payload  Payload
+	Payload  int // TODO: placeholder
 }
 
 type RMWSet struct {
@@ -74,7 +74,7 @@ type RMWSet struct {
 	Ballot   int32
 	Command  []state.Command
 	Key      int
-	Payload  Payload
+	Payload  int // TODO: placeholder
 }
 
 type RMWSetReply struct {
