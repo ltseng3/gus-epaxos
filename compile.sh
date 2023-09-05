@@ -1,4 +1,6 @@
-export GOPATH=/root/go/src/gus-epaxos
-go install master
-go install server
-go install client
+export GOPATH=/root/go/
+export GOBIN=/root/go/src/gus-epaxos/bin
+go install gus-epaxos/src/master
+go install gus-epaxos/src/server
+go install gus-epaxos/src/client
+export GOBIN=
