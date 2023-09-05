@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"zipfian"
+	"gus-epaxos/src/zipfian"
 )
 
 func main() {

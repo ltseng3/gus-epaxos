@@ -1,7 +1,7 @@
 package paxosproto
 
 import (
-	"state"
+	"gus-epaxos/src/state"
 )
 
 const (

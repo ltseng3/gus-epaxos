@@ -3,15 +3,15 @@ package genericsmr
 import (
 	"bufio"
 	"encoding/binary"
-	"fastrpc"
 	"fmt"
-	"genericsmrproto"
+	"gus-epaxos/src/fastrpc"
+	"gus-epaxos/src/genericsmrproto"
+	"gus-epaxos/src/rdtsc"
+	"gus-epaxos/src/state"
 	"io"
 	"log"
 	"net"
 	"os"
-	"rdtsc"
-	"state"
 	"time"
 )
 

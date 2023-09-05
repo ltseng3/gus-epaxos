@@ -1,7 +1,7 @@
 package bloomfilter
 
 import (
-	"bitvec"
+	"gus-epaxos/src/bitvec"
 	"math"
 )
 

@@ -2,8 +2,8 @@ package epaxos
 
 import (
 	//    "state"
-	"epaxosproto"
-	"genericsmrproto"
+	"gus-epaxos/src/epaxosproto"
+	"gus-epaxos/src/genericsmrproto"
 	"sort"
 	"time"
 )

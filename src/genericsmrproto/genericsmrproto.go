@@ -1,7 +1,7 @@
 package genericsmrproto
 
 import (
-	"state"
+	"gus-epaxos/src/state"
 )
 
 const (

@@ -1,7 +1,7 @@
 package menciusproto
 
 import (
-	"fastrpc"
+	"gus-epaxos/src/fastrpc"
 	"io"
 	"sync"
 )

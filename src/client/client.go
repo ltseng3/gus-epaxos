@@ -5,18 +5,18 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"genericsmrproto"
-	"golang.org/x/sync/semaphore"
+	"gus-epaxos/src/genericsmrproto"
+	"gus-epaxos/src/golang.org/x/sync/semaphore"
+	"gus-epaxos/src/poisson"
+	"gus-epaxos/src/state"
+	"gus-epaxos/src/zipfian"
 	"log"
 	"math/rand"
 	"net"
 	"os"
-	"poisson"
 	"runtime"
-	"state"
 	"sync"
 	"time"
-	"zipfian"
 )
 
 var leaderAddr *string = flag.String("laddr", "10.10.1.2", "Leader address. Defaults to 10.10.1.2")

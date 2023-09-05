@@ -1,15 +1,15 @@
 package fastpaxos
 
 import (
-	"dlog"
-	"fastrpc"
 	"fmt"
-	"genericsmr"
-	"genericsmrproto"
-	"math"
+	"gus-epaxos/src/dlog"
+	"gus-epaxos/src/fastpaxosproto"
+	"gus-epaxos/src/fastrpc"
+	"gus-epaxos/src/genericsmr"
+	"gus-epaxos/src/genericsmrproto"
+	"gus-epaxos/src/state"
 	"log"
-	"fastpaxosproto"
-	"state"
+	"math"
 	"time"
 )
 
@@ -17,20 +17,20 @@ const CHAN_BUFFER_SIZE = 200000
 const TRUE = uint8(1)
 const FALSE = uint8(0)
 
-const MAX_BATCH = 1 // No Batch
+const MAX_BATCH = 1   // No Batch
 const MAX_OP = 500000 // If this is too large, something blows up
-//const MAX_TAG = MAX_OP*3
+// const MAX_TAG = MAX_OP*3
 const MAX_TAG = 1000 // 5000*3, MAX_Key = 1000
 const MAX_KEY = 5000 // If this is too large, something blows up
 
 //const MAX_WRITE = 5000
 
 type Replica struct {
-	*genericsmr.Replica// extends a generic Paxos replica
+	*genericsmr.Replica // extends a generic Paxos replica
 	writeChan           chan fastrpc.Serializable
 	ackWriteChan        chan fastrpc.Serializable
 	commitWriteChan     chan fastrpc.Serializable
-	ackCommitChan     chan fastrpc.Serializable
+	ackCommitChan       chan fastrpc.Serializable
 	readChan            chan fastrpc.Serializable
 	ackReadChan         chan fastrpc.Serializable
 	acceptChan          chan fastrpc.Serializable
@@ -38,7 +38,7 @@ type Replica struct {
 	writeRPC            uint8
 	ackWriteRPC         uint8
 	commitWriteRPC      uint8
-	ackCommitRPC		uint8
+	ackCommitRPC        uint8
 	readRPC             uint8
 	ackReadRPC          uint8
 	acceptRPC           uint8
@@ -107,7 +107,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 	return r
 }
 
-//sync with the stable store
+// sync with the stable store
 func (r *Replica) sync() {
 	if !r.Durable {
 		return
@@ -122,7 +122,6 @@ func (r *Replica) BeTheLeader(args *genericsmrproto.BeTheLeaderArgs, reply *gene
 	r.IsLeader = true
 	return nil
 }
-
 
 /* ============= */
 
@@ -173,7 +172,7 @@ func (r *Replica) run() {
 
 			if r.busyKey[key] {
 				r.pendingOps = append(r.pendingOps, propose)
-			}else {
+			} else {
 
 				r.busyKey[key] = true
 				r.bookkeeping[r.currentSeq].proposal = propose
@@ -201,9 +200,7 @@ func (r *Replica) run() {
 						r.storage[key] = make(map[int32]state.Value)
 					}
 
-
 					r.bookkeeping[r.currentSeq].valueToWrite = propose.Command.V
-
 
 					r.currentVersion[key] = r.currentVersion[key] + 1
 					r.bookkeeping[r.currentSeq].maxVersion = r.currentVersion[key]
@@ -224,13 +221,11 @@ func (r *Replica) run() {
 			seq := int32(write.Seq)
 			id := write.WriterID
 
-
 			_, existence := r.currentVersion[key]
 			if !existence {
 				r.currentVersion[key] = 0
 			}
 			myVersion := r.currentVersion[key]
-
 
 			if myVersion < version {
 				r.currentVersion[key] = version
@@ -241,7 +236,7 @@ func (r *Replica) run() {
 				}
 				r.storage[key][version] = write.Command.V
 				r.bcastAckWrite(seq, id, version)
-			}else{
+			} else {
 				r.bcastAckWrite(seq, id, version)
 			}
 
@@ -256,7 +251,6 @@ func (r *Replica) run() {
 			//}
 			break
 
-
 		case ackWriteS := <-r.ackWriteChan:
 			ackWrite := ackWriteS.(*fastpaxosproto.AckWrite)
 			key := r.bookkeeping[ackWrite.Seq].key
@@ -267,12 +261,12 @@ func (r *Replica) run() {
 				r.bookkeeping[ackWrite.Seq].needSecondPhase = true
 			}
 
-			fastQuorumSize := int(math.Floor(3*float64(r.N)/4))
+			fastQuorumSize := int(math.Floor(3 * float64(r.N) / 4))
 
 			//fmt.Println("GUS: bookKeeping Seq %d with %d ack-write", ackWrite.Seq, r.bookkeeping[ackWrite.Seq].acks)
 			if (r.bookkeeping[ackWrite.Seq].ackWrites >= fastQuorumSize) && !r.bookkeeping[ackWrite.Seq].doneFirstPhase && !r.bookkeeping[ackWrite.Seq].complete {
 				r.bookkeeping[ackWrite.Seq].doneFirstPhase = true
-				if !r.bookkeeping[ackWrite.Seq].needSecondPhase {// All staleTag = FALSE
+				if !r.bookkeeping[ackWrite.Seq].needSecondPhase { // All staleTag = FALSE
 
 					// Reply to client
 					//fmt.Printf("Fasx Paxos: reply to client %d +++ Fast Path +++\n", r.currentSeq)
@@ -291,7 +285,7 @@ func (r *Replica) run() {
 					// Tell others to commit
 					r.bcastCommitWrite(ackWrite.Seq, ackWrite.WriterID, r.bookkeeping[ackWrite.Seq].maxVersion)
 					r.storage[key][r.bookkeeping[ackWrite.Seq].maxVersion] = r.bookkeeping[ackWrite.Seq].valueToWrite
-				}else{
+				} else {
 					r.currentVersion[key] = r.bookkeeping[ackWrite.Seq].maxVersion + 1
 					r.bcastCommitWrite(ackWrite.Seq, ackWrite.WriterID, r.bookkeeping[ackWrite.Seq].maxVersion)
 					r.bookkeeping[ackWrite.Seq].waitForAckCommit = true
@@ -352,7 +346,7 @@ func (r *Replica) run() {
 
 			version := r.currentVersion[key]
 
-			if version < ackRead.Version {//A conflicting write
+			if version < ackRead.Version { //A conflicting write
 				r.currentVersion[key] = ackRead.Version
 				_, existence := r.storage[key]
 				if !existence {
@@ -361,12 +355,12 @@ func (r *Replica) run() {
 				r.storage[key][r.currentVersion[key]] = ackRead.Value
 				r.bookkeeping[ackRead.Seq].needSecondPhase = true
 			}
-			fastQuorumSize := int(math.Floor(3*float64(r.N)/4))
+			fastQuorumSize := int(math.Floor(3 * float64(r.N) / 4))
 			if (r.bookkeeping[ackRead.Seq].ackReads >= fastQuorumSize) && r.bookkeeping[ackRead.Seq].waitForAckRead {
 				if r.bookkeeping[ackRead.Seq].needSecondPhase {
 					r.bcastCommitWrite(ackRead.Seq, ackRead.ReaderID, r.bookkeeping[ackRead.Seq].maxVersion)
 					r.bookkeeping[ackRead.Seq].waitForAckCommit = true
-				}else{
+				} else {
 					// Reply to client
 					propreply := &genericsmrproto.ProposeReplyTS{
 						TRUE,
@@ -387,18 +381,16 @@ func (r *Replica) run() {
 	}
 }
 
-
 // seq denotes is associated with the operation that just completes
-func (r *Replica) reset(seq int32){
+func (r *Replica) reset(seq int32) {
 	// Optimization: process pending operations
 	if len(r.pendingOps) != 0 {
 		var proposal *genericsmr.Propose
 		var newSlice []*genericsmr.Propose
 
-
-		for i:=0; i < len(r.pendingOps); i++ {
+		for i := 0; i < len(r.pendingOps); i++ {
 			proposal = r.pendingOps[i]
-			if proposal.Command.Op == state.GET{
+			if proposal.Command.Op == state.GET {
 				propreply := &genericsmrproto.ProposeReplyTS{
 					TRUE,
 					proposal.CommandId,
@@ -406,7 +398,7 @@ func (r *Replica) reset(seq int32){
 					proposal.Timestamp}
 				r.ReplyProposeTS(propreply, proposal.Reply)
 				//TODO: add this proposal to the booking for debugging/logging purpose
-			}else{
+			} else {
 				newSlice = append(newSlice, proposal)
 			}
 			fmt.Print("Handling concurrent operations %d\n", len(r.pendingOps))
@@ -422,7 +414,6 @@ func (r *Replica) reset(seq int32){
 		fmt.Println(len(r.pendingOps))
 	}
 }
-
 
 /**********************************************************************
                     inter-replica communication
@@ -448,6 +439,7 @@ func (r *Replica) bcastAll(whichRPC uint8, msg fastrpc.Serializable) {
 }
 
 var writeMSG fastpaxosproto.Write
+
 func (r *Replica) bcastWrite(seq int32, command state.Command) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -465,6 +457,7 @@ func (r *Replica) bcastWrite(seq int32, command state.Command) {
 }
 
 var ackWriteMSG fastpaxosproto.AckWrite
+
 func (r *Replica) bcastAckWrite(seq int32, writerID int32, version int32) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -484,6 +477,7 @@ func (r *Replica) bcastAckWrite(seq int32, writerID int32, version int32) {
 }
 
 var commitWriteMSG fastpaxosproto.CommitWrite
+
 func (r *Replica) bcastCommitWrite(seq int32, id int32, version int32) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -502,8 +496,8 @@ func (r *Replica) bcastCommitWrite(seq int32, id int32, version int32) {
 	r.bcastAll(r.commitWriteRPC, args)
 }
 
-
 var ackCommitMSG fastpaxosproto.AckCommit
+
 func (r *Replica) bcastAckCommit(seq int32, coordinator int32) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -520,6 +514,7 @@ func (r *Replica) bcastAckCommit(seq int32, coordinator int32) {
 }
 
 var readMSG fastpaxosproto.Read
+
 func (r *Replica) bcastRead(seq int32, command state.Command) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -537,6 +532,7 @@ func (r *Replica) bcastRead(seq int32, command state.Command) {
 }
 
 var ackReadMSG fastpaxosproto.AckRead
+
 func (r *Replica) bcastAckRead(seq int32, readerID int32, key state.Key) {
 	defer func() {
 		if err := recover(); err != nil {

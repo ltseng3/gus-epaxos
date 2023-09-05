@@ -1,10 +1,10 @@
 package epaxos
 
 import (
-	"epaxosproto"
 	"fmt"
-	"genericsmr"
-	"state"
+	"gus-epaxos/src/epaxosproto"
+	"gus-epaxos/src/genericsmr"
+	"gus-epaxos/src/state"
 	"testing"
 )
 

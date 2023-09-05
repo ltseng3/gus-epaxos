@@ -1,15 +1,15 @@
 package gus
 
 import (
-	"dlog"
 	"encoding/binary"
-	"fastrpc"
 	"fmt"
-	"genericsmr"
-	"genericsmrproto"
-	"gusproto"
+	"gus-epaxos/src/dlog"
+	"gus-epaxos/src/fastrpc"
+	"gus-epaxos/src/genericsmr"
+	"gus-epaxos/src/genericsmrproto"
+	"gus-epaxos/src/gusproto"
+	"gus-epaxos/src/state"
 	"log"
-	"state"
 	"time"
 )
 
@@ -120,7 +120,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 	return r
 }
 
-//sync with the stable store
+// sync with the stable store
 func (r *Replica) sync() {
 	if !r.Durable {
 		return

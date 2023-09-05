@@ -1,9 +1,9 @@
 package fastpaxosproto
 
 import (
+	"gus-epaxos/src/fastrpc"
 	"io"
 	"sync"
-	"fastrpc"
 )
 
 func (t *AckWrite) New() fastrpc.Serializable {
@@ -14,8 +14,8 @@ func (t *AckWrite) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type AckWriteCache struct {
-	mu	sync.Mutex
-	cache	[]*AckWrite
+	mu    sync.Mutex
+	cache []*AckWrite
 }
 
 func NewAckWriteCache() *AckWriteCache {
@@ -85,8 +85,8 @@ func (t *CommitWrite) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type CommitWriteCache struct {
-	mu	sync.Mutex
-	cache	[]*CommitWrite
+	mu    sync.Mutex
+	cache []*CommitWrite
 }
 
 func NewCommitWriteCache() *CommitWriteCache {
@@ -160,8 +160,8 @@ func (t *AckCommit) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type AckCommitCache struct {
-	mu	sync.Mutex
-	cache	[]*AckCommit
+	mu    sync.Mutex
+	cache []*AckCommit
 }
 
 func NewAckCommitCache() *AckCommitCache {
@@ -219,8 +219,8 @@ func (t *Read) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type ReadCache struct {
-	mu	sync.Mutex
-	cache	[]*Read
+	mu    sync.Mutex
+	cache []*Read
 }
 
 func NewReadCache() *ReadCache {
@@ -292,8 +292,8 @@ func (t *AckRead) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type AckReadCache struct {
-	mu	sync.Mutex
-	cache	[]*AckRead
+	mu    sync.Mutex
+	cache []*AckRead
 }
 
 func NewAckReadCache() *AckReadCache {
@@ -365,8 +365,8 @@ func (t *Write) BinarySize() (nbytes int, sizeKnown bool) {
 }
 
 type WriteCache struct {
-	mu	sync.Mutex
-	cache	[]*Write
+	mu    sync.Mutex
+	cache []*Write
 }
 
 func NewWriteCache() *WriteCache {

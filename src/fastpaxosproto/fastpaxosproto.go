@@ -1,7 +1,7 @@
 package fastpaxosproto
 
 import (
-	"state"
+	"gus-epaxos/src/state"
 )
 
 // PreAccept
@@ -47,4 +47,3 @@ type AckRead struct {
 	Version  int32
 	Value    state.Value
 }
-

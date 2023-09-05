@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"genericsmrproto"
+	"gus-epaxos/src/genericsmrproto"
+	"gus-epaxos/src/masterproto"
 	"log"
-	"masterproto"
 	"net"
 	"net/http"
 	"net/rpc"

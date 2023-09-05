@@ -1,17 +1,17 @@
 package epaxos
 
 import (
-	"bloomfilter"
-	"dlog"
 	"encoding/binary"
-	"epaxosproto"
-	"fastrpc"
-	"genericsmr"
-	"genericsmrproto"
+	"gus-epaxos/src/bloomfilter"
+	"gus-epaxos/src/dlog"
+	"gus-epaxos/src/epaxosproto"
+	"gus-epaxos/src/fastrpc"
+	"gus-epaxos/src/genericsmr"
+	"gus-epaxos/src/genericsmrproto"
+	"gus-epaxos/src/state"
 	"io"
 	"log"
 	"math"
-	"state"
 	"sync"
 	"time"
 )
@@ -183,7 +183,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 	return r
 }
 
-//append a log entry to stable storage
+// append a log entry to stable storage
 func (r *Replica) recordInstanceMetadata(inst *Instance) {
 	if !r.Durable {
 		return
@@ -201,7 +201,7 @@ func (r *Replica) recordInstanceMetadata(inst *Instance) {
 	r.StableStore.Write(b[:])
 }
 
-//write a sequence of commands to stable storage
+// write a sequence of commands to stable storage
 func (r *Replica) recordCommands(cmds []state.Command) {
 	if !r.Durable {
 		return
@@ -215,7 +215,7 @@ func (r *Replica) recordCommands(cmds []state.Command) {
 	}
 }
 
-//sync with the stable store
+// sync with the stable store
 func (r *Replica) sync() {
 	if !r.Durable {
 		return
@@ -707,8 +707,8 @@ func (r *Replica) updateConflicts(cmds []state.Command, replica int32, instance 
 				r.conflicts[replica][cmds[i].K] = instance
 			}
 		} else {
-            r.conflicts[replica][cmds[i].K] = instance
-        }
+			r.conflicts[replica][cmds[i].K] = instance
+		}
 		if s, present := r.maxSeqPerKey[cmds[i].K]; present {
 			if s < seq {
 				r.maxSeqPerKey[cmds[i].K] = seq

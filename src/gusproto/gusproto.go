@@ -1,7 +1,7 @@
 package gusproto
 
 import (
-	"state"
+	"gus-epaxos/src/state"
 )
 
 const (

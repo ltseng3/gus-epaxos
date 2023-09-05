@@ -1,15 +1,15 @@
 package paxos
 
 import (
-	"dlog"
 	"encoding/binary"
-	"fastrpc"
-	"genericsmr"
-	"genericsmrproto"
+	"gus-epaxos/src/dlog"
+	"gus-epaxos/src/fastrpc"
+	"gus-epaxos/src/genericsmr"
+	"gus-epaxos/src/genericsmrproto"
+	"gus-epaxos/src/paxosproto"
+	"gus-epaxos/src/state"
 	"io"
 	"log"
-	"paxosproto"
-	"state"
 	"time"
 )
 

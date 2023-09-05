@@ -1,7 +1,7 @@
 package epaxosproto
 
 import (
-	"state"
+	"gus-epaxos/src/state"
 )
 
 type Prepare struct {
