@@ -46,7 +46,7 @@ type response struct {
 	receivedAt    time.Time
 	rtt           float64 // The operation latency, in ms
 	commitLatency float64 // The operation's commit latency, in ms
-	isRead        bool
+	operation     state.Operation
 	replicaID     int
 }
 
@@ -56,7 +56,7 @@ type outstandingRequestInfo struct {
 	sync.Mutex
 	sema       *semaphore.Weighted // Controls number of outstanding operations
 	startTimes map[int32]time.Time // The time at which operations were sent out
-	isRead     map[int32]bool
+	operation  map[int32]state.Operation
 }
 
 // An outstandingRequestInfo per client thread
@@ -91,7 +91,7 @@ func main() {
 			sync.Mutex{},
 			semaphore.NewWeighted(*outstandingReqs),
 			make(map[int32]time.Time, *outstandingReqs),
-			make(map[int32]bool, *outstandingReqs)}
+			make(map[int32]state.Operation, *outstandingReqs)}
 
 		if *serverID != 0 { // not already connected to leader
 			leader, err := net.Dial("tcp", fmt.Sprintf("%s:%d", *leaderAddr, *leaderPort))
@@ -195,9 +195,7 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 		}
 
 		orInfo.Lock()
-		if args.Command.Op == state.GET {
-			orInfo.isRead[args.CommandId] = true //TODO: RMW support
-		}
+		orInfo.operation[id] = args.Command.Op
 		orInfo.startTimes[args.CommandId] = before
 		orInfo.Unlock()
 	}
@@ -218,7 +216,7 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 
 		orInfo.Lock()
 		before := orInfo.startTimes[reply.CommandId]
-		isRead := orInfo.isRead[reply.CommandId]
+		operation := orInfo.operation[reply.CommandId]
 		delete(orInfo.startTimes, reply.CommandId)
 		orInfo.Unlock()
 		rtt := (after.Sub(before)).Seconds() * 1000
@@ -228,7 +226,7 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 			after,
 			rtt,
 			commitLatency,
-			isRead,
+			operation,
 			leader}
 
 	}
@@ -315,6 +313,13 @@ func printerMultipleFile(readings chan *response, replicaID int, experimentStart
 		return
 	}
 
+	fileName = fmt.Sprintf("latFileRMW-%d.txt", replicaID)
+	latFileRMW, err := os.Create(fileName)
+	if err != nil {
+		log.Println("Error creating latency file", err)
+		return
+	}
+
 	startTime := time.Now()
 
 	for {
@@ -329,10 +334,12 @@ func printerMultipleFile(readings chan *response, replicaID int, experimentStart
 			resp := <-readings
 			// Log all to latency file if they are not within the ramp up or ramp down period.
 			if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout-*rampDown {
-				if resp.isRead {
+				if resp.operation == state.GET {
 					latFileRead.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
-				} else {
+				} else if resp.operation == state.PUT {
 					latFileWrite.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+				} else { // rmw
+					latFileRMW.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
 				}
 				sum += resp.rtt
 				commitSum += resp.commitLatency
