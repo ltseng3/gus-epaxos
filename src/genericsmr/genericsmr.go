@@ -203,6 +203,7 @@ func (r *Replica) waitForPeerConnections(done chan bool) {
 			continue
 		}
 		id := int32(binary.LittleEndian.Uint32(bs))
+		log.Println("This is the ID: ", id)
 		r.Peers[id] = conn
 		r.PeerReaders[id] = bufio.NewReader(conn)
 		r.PeerWriters[id] = bufio.NewWriter(conn)
