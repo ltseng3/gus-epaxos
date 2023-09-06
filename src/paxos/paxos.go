@@ -423,6 +423,9 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 		r.readProposal[propose.CommandId] = propose
 		r.bcastRead(propose.CommandId)
 	} else {
+		if propose.Command.Op == state.RMW {
+			log.Println("is rmw")
+		}
 		for r.instanceSpace[r.crtInstance] != nil {
 			r.crtInstance++
 		}
