@@ -332,7 +332,6 @@ func printerMultipleFile(readings chan *response, replicaID int, experimentStart
 		currentRuntime := time.Now().Sub(experimentStart)
 		for i := 0; i < count; i++ {
 			resp := <-readings
-			log.Println(resp.operation)
 			// Log all to latency file if they are not within the ramp up or ramp down period.
 			if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout-*rampDown {
 				if resp.operation == state.GET {
