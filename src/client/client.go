@@ -195,6 +195,7 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 		}
 
 		orInfo.Lock()
+		log.Println("sending message :", id, " initially with op: ", args.Command.Op)
 		orInfo.operation[id] = args.Command.Op
 		orInfo.startTimes[args.CommandId] = before
 		orInfo.Unlock()
@@ -215,6 +216,7 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 		orInfo.sema.Release(1)
 
 		orInfo.Lock()
+		log.Println("Got reply with id: ", reply.CommandId, " with op: ", orInfo.operation[reply.CommandId])
 		before := orInfo.startTimes[reply.CommandId]
 		operation := orInfo.operation[reply.CommandId]
 		delete(orInfo.startTimes, reply.CommandId)
