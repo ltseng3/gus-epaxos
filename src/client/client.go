@@ -34,6 +34,7 @@ var theta = flag.Float64("theta", 0.99, "Theta zipfian parameter")
 var zKeys = flag.Uint64("z", 1e9, "Number of unique keys in zipfian distribution.")
 var poissonAvg = flag.Int("poisson", -1, "The average number of microseconds between requests. -1 disables Poisson.")
 var percentWrites = flag.Float64("writes", 1, "A float between 0 and 1 that corresponds to the percentage of requests that should be writes. The remainder will be reads.")
+var percentRMWs = flag.Float64("rmws", 0, "A float between 0 and 1 that corresponds to the percentage of writes that should be RMWs. The remainder will be regular writes.")
 var blindWrites = flag.Bool("blindwrites", false, "True if writes don't need to execute before clients receive responses.")
 var singleClusterTest = flag.Bool("singleClusterTest", true, "True if clients run on a VM in a single cluster")
 var rampDown *int = flag.Int("rampDown", 5, "Length of the cool-down period after statistics are measured (in seconds).")
@@ -151,11 +152,15 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 
 		// Determine operation type
 		randNumber := opRand.Float64()
-		if *percentWrites > randNumber {
-			if !*blindWrites {
-				args.Command.Op = state.PUT // write operation
-			} else {
-				//args.Command.Op = state.PUT_BLIND
+		if *percentWrites+*percentRMWs > randNumber {
+			if *percentWrites > randNumber {
+				if !*blindWrites {
+					args.Command.Op = state.PUT // write operation
+				} else {
+					//args.Command.Op = state.PUT_BLIND
+				}
+			} else if *percentRMWs > 0 {
+				args.Command.Op = state.RMW // RMW operation
 			}
 		} else {
 			args.Command.Op = state.GET // read operation
@@ -179,7 +184,7 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 		}
 
 		before := time.Now()
-		if args.Command.Op == state.PUT && serverID != 0 { // send RMWs to leader
+		if (args.Command.Op == state.PUT || args.Command.Op == state.RMW) && serverID != 0 { // send RMWs to leader
 			lWriter.WriteByte(genericsmrproto.PROPOSE)
 			args.Marshal(lWriter)
 			lWriter.Flush()
@@ -191,7 +196,7 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 
 		orInfo.Lock()
 		if args.Command.Op == state.GET {
-			orInfo.isRead[args.CommandId] = true
+			orInfo.isRead[args.CommandId] = true //TODO: RMW support
 		}
 		orInfo.startTimes[args.CommandId] = before
 		orInfo.Unlock()
