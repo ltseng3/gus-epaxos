@@ -15,7 +15,7 @@ const (
 	GET
 	DELETE
 	RLOCK
-	WLOCK
+	RMW
 )
 
 type Value int64
@@ -96,10 +96,12 @@ func (c *Command) Execute(st *State) Value {
 		if val, present := st.Store[c.K]; present {
 			return val
 		}
-		//case RMW:
-		//	c.V = c.V + 1 // modify
-		//	st.Store[c.K] = c.V
-		//	return c.V
+	case RMW:
+		if val, present := st.Store[c.K]; present {
+			val = val + 1 // modify
+			st.Store[c.K] = val
+			return val
+		}
 	}
 
 	return NIL
