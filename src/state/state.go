@@ -31,8 +31,8 @@ type Command struct {
 }
 
 type State struct {
-	//mutex *sync.Mutex
-	//Store map[Key]Value
+	mutex *sync.Mutex
+	Store map[Key]Value
 }
 
 func InitState() *State {
