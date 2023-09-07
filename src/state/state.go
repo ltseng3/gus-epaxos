@@ -15,7 +15,6 @@ const (
 	GET
 	DELETE
 	RLOCK
-	WLOCK
 	RMW
 )
 
@@ -32,9 +31,8 @@ type Command struct {
 }
 
 type State struct {
-	mutex *sync.Mutex
-	Store map[Key]Value
-	//DB *leveldb.DB
+	//mutex *sync.Mutex
+	//Store map[Key]Value
 }
 
 func InitState() *State {
