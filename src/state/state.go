@@ -15,7 +15,7 @@ const (
 	GET
 	DELETE
 	RLOCK
-	RMW
+	WLOCK
 )
 
 type Value int64
