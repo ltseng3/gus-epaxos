@@ -138,9 +138,9 @@ func (r *Replica) ConnectToPeers() {
 		}
 		binary.LittleEndian.PutUint32(bs, uint32(r.Id))
 		if true {
-			fmt.Println("Hi")
-			fmt.Println("First bs: ", bs)
-			fmt.Println("bye")
+			fmt.Fprintln(os.Stderr, "Hi")
+			fmt.Fprintln(os.Stderr, "First bs: ", bs)
+			fmt.Fprintln(os.Stderr, "bye")
 		}
 		if _, err := r.Peers[i].Write(bs); err != nil {
 			fmt.Println("Write id error:", err)
