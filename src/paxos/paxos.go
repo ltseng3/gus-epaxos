@@ -189,14 +189,14 @@ func (r *Replica) clock() {
 /* Main event processing loop */
 
 func (r *Replica) run() {
+	if r.Id > 2 {
+		log.Println("Sleeping")
+		time.Sleep(2 * time.Second)
+	}
 	r.ConnectToPeers()
 
 	dlog.Println("Waiting for client connections")
 
-	if r.Id > 2 {
-		log.Println("Sleeping")
-		time.Sleep(10 * time.Second)
-	}
 	go r.WaitForClientConnections()
 
 	if r.Exec {
