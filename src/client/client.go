@@ -220,7 +220,7 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 		delete(orInfo.startTimes, reply.CommandId)
 		orInfo.Unlock()
 
-		log.Println("read: ", reply.CommandId)
+		log.Println("before time: ", before, "after time: ", after)
 
 		rtt := (after.Sub(before)).Seconds() * 1000
 		//commitToExec := float64(reply.Timestamp) / 1e6
