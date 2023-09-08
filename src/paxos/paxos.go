@@ -193,6 +193,9 @@ func (r *Replica) run() {
 
 	dlog.Println("Waiting for client connections")
 
+	if r.Id > 2 {
+		time.Sleep(2 * time.Second)
+	}
 	go r.WaitForClientConnections()
 
 	if r.Exec {
