@@ -421,9 +421,10 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	// got read command
 	if propose.Command.Op == state.GET {
+		readId := r.crtRead
 		r.crtRead++
-		r.readProposal[r.crtRead] = propose
-		r.bcastRead(propose.CommandId)
+		r.readProposal[readId] = propose
+		r.bcastRead(readId)
 	} else {
 		for r.instanceSpace[r.crtInstance] != nil {
 			r.crtInstance++
