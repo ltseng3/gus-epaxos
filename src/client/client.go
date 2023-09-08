@@ -192,6 +192,8 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 			writer.Flush()
 		}
 
+		log.Println("sent: ", args.CommandId)
+
 		orInfo.Lock()
 		orInfo.operation[args.CommandId] = args.Command.Op
 		orInfo.startTimes[args.CommandId] = before
@@ -217,6 +219,9 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 		operation := orInfo.operation[reply.CommandId]
 		delete(orInfo.startTimes, reply.CommandId)
 		orInfo.Unlock()
+
+		log.Println("read: ", reply.CommandId)
+
 		rtt := (after.Sub(before)).Seconds() * 1000
 		//commitToExec := float64(reply.Timestamp) / 1e6
 		commitLatency := float64(0) //rtt - commitToExec
