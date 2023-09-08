@@ -98,7 +98,12 @@ func (c *Command) Execute(st *State) Value {
 		}
 	case RMW:
 		if val, present := st.Store[c.K]; present {
-			val = val + 1 // modify
+			val += 1 // modify
+			st.Store[c.K] = val
+			return val
+		} else {
+			val = 0  // default value read
+			val += 1 // modify
 			st.Store[c.K] = val
 			return val
 		}
