@@ -48,6 +48,7 @@ type Replica struct {
 	acceptedUpTo        int32
 	committedUpTo       int32
 	executedUpTo        int32
+	crtRead             int32 // highest active readID used for this replica
 	readOKs             map[int32]int
 	readData            map[int32][]int32
 	readProposal        map[int32]*genericsmr.Propose
@@ -99,10 +100,11 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		-1,
 		-1,
 		-1,
+		0,
 		map[int32]int{},
 		map[int32][]int32{},
 		map[int32]*genericsmr.Propose{},
-		make([][]*genericsmr.Propose, 1024*1024*1024),
+		make([][]*genericsmr.Propose, 150*1024*1024),
 	}
 
 	r.Durable = durable
@@ -189,10 +191,6 @@ func (r *Replica) clock() {
 /* Main event processing loop */
 
 func (r *Replica) run() {
-	if r.Id < 3 {
-		log.Println("Sleeping")
-		time.Sleep(2 * time.Second)
-	}
 	r.ConnectToPeers()
 
 	dlog.Println("Waiting for client connections")
@@ -423,7 +421,8 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	// got read command
 	if propose.Command.Op == state.GET {
-		r.readProposal[propose.CommandId] = propose
+		r.crtRead++
+		r.readProposal[r.crtRead] = propose
 		r.bcastRead(propose.CommandId)
 	} else {
 		for r.instanceSpace[r.crtInstance] != nil {

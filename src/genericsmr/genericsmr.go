@@ -137,9 +137,6 @@ func (r *Replica) ConnectToPeers() {
 			}
 		}
 		binary.LittleEndian.PutUint32(bs, uint32(r.Id))
-		if true {
-			fmt.Fprintln(os.Stderr, "First bs: ", bs)
-		}
 		if _, err := r.Peers[i].Write(bs); err != nil {
 			fmt.Println("Write id error:", err)
 			continue
@@ -205,7 +202,6 @@ func (r *Replica) waitForPeerConnections(done chan bool) {
 			fmt.Println("Connection establish error:", err)
 			continue
 		}
-		log.Println("Second bs: ", bs)
 		id := int32(binary.LittleEndian.Uint32(bs))
 		r.Peers[id] = conn
 		r.PeerReaders[id] = bufio.NewReader(conn)

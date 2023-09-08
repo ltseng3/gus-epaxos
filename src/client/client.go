@@ -102,11 +102,11 @@ func main() {
 			lReader := bufio.NewReader(leader)
 			lWriter := bufio.NewWriter(leader)
 
-			go simulatedClientWriter(writer, lWriter /* leader writer*/, orInfo, i, *serverID)
+			go simulatedClientWriter(writer, lWriter /* leader writer*/, orInfo, *serverID)
 			go simulatedClientReader(lReader, orInfo, readings, *serverID)
 			go simulatedClientReader(reader, orInfo, readings, *serverID)
 		} else {
-			go simulatedClientWriter(writer, nil /* leader writer*/, orInfo, i, *serverID)
+			go simulatedClientWriter(writer, nil /* leader writer*/, orInfo, *serverID)
 			go simulatedClientReader(reader, orInfo, readings, *serverID)
 		}
 		//waitTime := startTime.Intn(3)
@@ -122,7 +122,7 @@ func main() {
 	}
 }
 
-func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *outstandingRequestInfo, clientId int, serverID int) {
+func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *outstandingRequestInfo, serverID int) {
 	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 1}, 0 /* timestamp */}
 	//args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 
@@ -133,9 +133,7 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 
 	queuedReqs := 0 // The number of poisson departures that have been missed
 	for id := int32(0); ; id++ {
-		// each client has unique command ids, where the last three digits
-		// are the client's id
-		args.CommandId = id*int32(1000) + int32(clientId+1*(serverID+1))
+		args.CommandId = id
 
 		// Determine key
 		if *conflicts >= 0 {
