@@ -424,7 +424,6 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 		readId := r.crtRead
 		r.crtRead++
 		r.readProposal[readId] = propose
-		log.Println("timestamp in propose: ", r.readProposal[readId].Propose.Timestamp)
 		r.bcastRead(readId)
 	} else {
 		for r.instanceSpace[r.crtInstance] != nil {
