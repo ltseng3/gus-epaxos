@@ -729,7 +729,6 @@ func (r *Replica) executeCommands() {
 				r.readsPending[i] = nil
 				if proposals != nil {
 					for _, prop := range proposals {
-						log.Println("timestamp in late reply: ", prop.Timestamp)
 						propreply := &genericsmrproto.ProposeReplyTS{
 							TRUE,
 							prop.CommandId,
@@ -816,10 +815,9 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 
 		r.readData[readReply.ReadId] = nil
 		if largestSlot == -1 {
-			log.Println("timestamp in early reply: ", r.readProposal[readReply.ReadId].Timestamp)
 			propreply := &genericsmrproto.ProposeReplyTS{
 				TRUE,
-				readReply.ReadId,
+				r.readProposal[readReply.ReadId].CommandId,
 				0,
 				r.readProposal[readReply.ReadId].Timestamp}
 			r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
@@ -828,10 +826,9 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 		}
 
 		if largestSlot <= r.executedUpTo {
-			log.Println("timestamp in reg reply: ", r.readProposal[readReply.ReadId].Timestamp)
 			propreply := &genericsmrproto.ProposeReplyTS{
 				TRUE,
-				readReply.ReadId,
+				r.readProposal[readReply.ReadId].CommandId,
 				r.instanceSpace[largestSlot].cmds[0].V,
 				r.readProposal[readReply.ReadId].Timestamp}
 			r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
