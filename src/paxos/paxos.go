@@ -189,7 +189,7 @@ func (r *Replica) clock() {
 /* Main event processing loop */
 
 func (r *Replica) run() {
-	if r.Id > 2 {
+	if r.Id < 3 {
 		log.Println("Sleeping")
 		time.Sleep(2 * time.Second)
 	}
