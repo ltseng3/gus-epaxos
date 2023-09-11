@@ -711,6 +711,7 @@ func (r *Replica) executeCommands() {
 				for j := 0; j < len(inst.cmds); j++ {
 					//log.Println("length of cmds: ", len(inst.cmds))
 					val = inst.cmds[j].Execute(r.State)
+					log.Println("write/rmw reply")
 					if r.IsLeader && r.Dreply && inst.lb != nil && inst.lb.clientProposals != nil {
 						propreply := &genericsmrproto.ProposeReplyTS{
 							TRUE,
