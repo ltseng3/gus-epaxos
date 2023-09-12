@@ -293,7 +293,8 @@ func printer(readings chan *response) {
 }
 
 func printerMultipleFile(readings chan *response, replicaID int, experimentStart time.Time, rampDown, rampUp, timeout *int) {
-	lattputFile, err := os.Create("lattput.txt")
+	fileName := fmt.Sprintf("lattput-%d.txt", replicaID)
+	lattputFile, err := os.Create(fileName)
 	if err != nil {
 		log.Println("Error creating lattput file", err)
 		return
