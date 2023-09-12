@@ -300,7 +300,7 @@ func printerMultipleFile(readings chan *response, replicaID int, experimentStart
 		return
 	}
 
-	fileName := fmt.Sprintf("latFileRead-%d.txt", replicaID)
+	fileName = fmt.Sprintf("latFileRead-%d.txt", replicaID)
 	latFileRead, err := os.Create(fileName)
 	if err != nil {
 		log.Println("Error creating latency file", err)
