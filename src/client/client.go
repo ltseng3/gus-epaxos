@@ -187,6 +187,7 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 	var reply genericsmrproto.ProposeReplyTS
 
 	for {
+		time.Sleep(1 * time.Millisecond)
 		if err := reply.Unmarshal(reader); err != nil || reply.OK == 0 {
 			log.Println(reply.OK)
 			log.Println(reply.CommandId)
