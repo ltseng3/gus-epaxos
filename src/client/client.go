@@ -2,10 +2,8 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"flag"
 	"fmt"
-	"golang.org/x/sync/semaphore"
 	"gus-epaxos/src/genericsmrproto"
 	"gus-epaxos/src/poisson"
 	"gus-epaxos/src/state"
@@ -54,7 +52,6 @@ type response struct {
 // yet received responses
 type outstandingRequestInfo struct {
 	sync.Mutex
-	sema       *semaphore.Weighted // Controls number of outstanding operations
 	startTimes map[int32]time.Time // The time at which operations were sent out
 	operation  map[int32]state.Operation
 }
@@ -89,7 +86,6 @@ func main() {
 
 		orInfo := &outstandingRequestInfo{
 			sync.Mutex{},
-			semaphore.NewWeighted(*outstandingReqs),
 			make(map[int32]time.Time, *outstandingReqs),
 			make(map[int32]state.Operation, *outstandingReqs)}
 
@@ -164,21 +160,9 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 			args.Command.Op = state.GET // read operation
 		}
 
-		if *poissonAvg == -1 { // Poisson disabled
-			orInfo.sema.Acquire(context.Background(), 1)
-		} else {
-			for {
-				if orInfo.sema.TryAcquire(1) {
-					if queuedReqs == 0 {
-						time.Sleep(poissonGenerator.NextArrival())
-					} else {
-						queuedReqs -= 1
-					}
-					break
-				}
-				time.Sleep(poissonGenerator.NextArrival())
-				queuedReqs += 1
-			}
+		if *poissonAvg != -1 {
+			time.Sleep(poissonGenerator.NextArrival())
+			queuedReqs += 1
 		}
 
 		before := time.Now()
@@ -212,7 +196,6 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 			break
 		}
 		after := time.Now()
-		orInfo.sema.Release(1)
 
 		orInfo.Lock()
 		before := orInfo.startTimes[reply.CommandId]
