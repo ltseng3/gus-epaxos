@@ -726,7 +726,7 @@ func (r *Replica) executeCommands() {
 				// reply to pending read request after execution
 				
 				
-				/*
+
 				if i > 999 {
 					proposals := r.readsPending[i-1000]
 					r.readsPending[i-1000] = nil
@@ -743,7 +743,6 @@ func (r *Replica) executeCommands() {
 					}
 				}
 				}
-				*/
 
 				i++
 			} else {
@@ -833,7 +832,7 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			return
 		}
 
-		if largestSlot <= r.executedUpTo {
+		//if largestSlot <= r.executedUpTo {
 			propreply := &genericsmrproto.ProposeReplyTS{
 				TRUE,
 				r.readProposal[readReply.ReadId].CommandId,
@@ -842,26 +841,10 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
 
 			r.readProposal[readReply.ReadId] = nil
-		} else {
-			go r.execRead(r.readProposal[readReply.ReadId], largestSlot)
+		//} else {
 		//	r.readsPending[largestSlot] = append(
 		//		r.readsPending[largestSlot],
 		//		r.readProposal[readReply.ReadId])
-		}
+		//}
 	}
-}
-
-func (r *Replica) execRead(read *genericsmr.Propose, slotIndex int32){
-		for !r.Shutdown {
-			if slotIndex < r.executedUpTo {
-				propreply := &genericsmrproto.ProposeReplyTS{
-					TRUE,
-					read.CommandId,
-					0, // this Val needs to be fixed
-					read.Timestamp}
-				r.ReplyProposeTS(propreply, read.Reply)
-			}
-			time.Sleep(CLOCK)
-		}
-	
 }
