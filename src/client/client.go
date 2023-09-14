@@ -338,6 +338,7 @@ func printerMultipleFile(readings chan *response, replicaID int, experimentStart
 		if count > 0 {
 			avg = sum / float64(count)
 			avgCommit = commitSum / float64(count)
+			log.Println("this count", count)
 			tput = float64(count) / endTime.Sub(startTime).Seconds()
 		}
 

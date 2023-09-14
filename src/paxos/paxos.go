@@ -754,7 +754,6 @@ var pr paxosproto.Read
 
 // broadcast read to other replicas
 func (r *Replica) bcastRead(readId int32) {
-	log.Println("sending read")
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Read bcast failed:", err)
