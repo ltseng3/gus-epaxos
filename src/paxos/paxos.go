@@ -419,6 +419,7 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 }
 
 func (r *Replica) handlePropose(propose *genericsmr.Propose) {
+	log.Println("got a command")
 	// got read command
 	if propose.Command.Op == state.GET {
 		readId := r.crtRead
