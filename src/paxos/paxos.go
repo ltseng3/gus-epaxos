@@ -208,6 +208,9 @@ func (r *Replica) run() {
 	clockChan = make(chan bool, 1)
 	go r.clock()
 
+	pendingReadChan = make(chan *genericsmr.Propose, 1000000)
+	indexChan = make(chan int32, 1000000)
+
 	onOffProposeChan := r.ProposeChan
 
 	for !r.Shutdown {
@@ -843,7 +846,9 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 
 			r.readProposal[readReply.ReadId] = nil
 		} else {
-			go r.execRead(r.readProposal[readReply.ReadId], largestSlot)
+			//go r.execRead(r.readProposal[readReply.ReadId], largestSlot)
+			pendingReadChan <- r.readProposal[readReply.ReadId]
+			indexChan <- largestSlot
 		//	r.readsPending[largestSlot] = append(
 		//		r.readsPending[largestSlot],
 		//		r.readProposal[readReply.ReadId])
@@ -851,17 +856,26 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 	}
 }
 
-func (r *Replica) execRead(read *genericsmr.Propose, slotIndex int32){
+//func (r *Replica) execRead(read *genericsmr.Propose, slotIndex int32){
+func (r *Replica) execRead(){
 		for !r.Shutdown {
-			if slotIndex < r.executedUpTo {
+			read := <-pendingReadChan
+			slotIndex :=  <-indexChan
+			
+			for slotIndex >= r.executedUpTo {
+				time.Sleep(1000)
+			}
 				propreply := &genericsmrproto.ProposeReplyTS{
 					TRUE,
 					read.CommandId,
 					0, // this Val needs to be fixed
 					read.Timestamp}
 				r.ReplyProposeTS(propreply, read.Reply)
-			}
-			time.Sleep(CLOCK)
+			//}
+			//time.Sleep(CLOCK)
 		}
 	
 }
+
+var pendingReadChan chan *genericsmr.Propose
+var indexChan chan int32
