@@ -1,20 +1,20 @@
 package main
 
 import (
-	"bufio"
-	"flag"
-	"fmt"
-	"gus-epaxos/src/genericsmrproto"
-	"gus-epaxos/src/poisson"
-	"gus-epaxos/src/state"
-	"gus-epaxos/src/zipfian"
-	"log"
-	"math/rand"
-	"net"
-	"os"
-	"runtime"
-	"sync"
-	"time"
+        "bufio"
+        "flag"
+        "fmt"
+        "gus-epaxos/src/genericsmrproto"
+        "gus-epaxos/src/poisson"
+        "gus-epaxos/src/state"
+        "gus-epaxos/src/zipfian"
+        "log"
+        "math/rand"
+        "net"
+        "os"
+        "runtime"
+        "sync"
+        "time"
 )
 
 var leaderAddr *string = flag.String("laddr", "10.10.1.2", "Leader address. Defaults to 10.10.1.2")
@@ -41,330 +41,331 @@ var timeout *int = flag.Int("timeout", 180, "Length of the timeout used when run
 
 // Information about the latency of an operation
 type response struct {
-	receivedAt    time.Time
-	rtt           float64 // The operation latency, in ms
-	commitLatency float64 // The operation's commit latency, in ms
-	operation     state.Operation
-	replicaID     int
+        receivedAt    time.Time
+        rtt           float64 // The operation latency, in ms
+        commitLatency float64 // The operation's commit latency, in ms
+        operation     state.Operation
+        replicaID     int
 }
 
 // Information pertaining to operations that have been issued but that have not
 // yet received responses
 type outstandingRequestInfo struct {
-	sync.Mutex
-	startTimes map[int32]time.Time // The time at which operations were sent out
-	operation  map[int32]state.Operation
+        sync.Mutex
+        startTimes map[int32]time.Time // The time at which operations were sent out
+        operation  map[int32]state.Operation
 }
 
 // An outstandingRequestInfo per client thread
 var orInfos []*outstandingRequestInfo
 
 func main() {
-	flag.Parse()
+        flag.Parse()
 
-	runtime.GOMAXPROCS(*procs)
+        runtime.GOMAXPROCS(*procs)
 
-	if *conflicts > 100 {
-		log.Fatalf("Conflicts percentage must be between 0 and 100.\n")
-	}
+        if *conflicts > 100 {
+                log.Fatalf("Conflicts percentage must be between 0 and 100.\n")
+        }
 
-	orInfos = make([]*outstandingRequestInfo, *T)
+        orInfos = make([]*outstandingRequestInfo, *T)
 
-	readings := make(chan *response, 100000)
-	//startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
-	experimentStart := time.Now()
+        readings := make(chan *response, 100000)
+        //startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
+        experimentStart := time.Now()
 
-	for i := 0; i < *T; i++ { // i is later used as client's id
-		log.Println("Connected to node: ", *serverAddr)
+        for i := 0; i < *T; i++ { // i is later used as client's id
+                log.Println("Connected to node: ", *serverAddr)
 
-		server, err := net.Dial("tcp", fmt.Sprintf("%s:%d", *serverAddr, *serverPort))
-		if err != nil {
-			log.Fatalf("Error connecting to replica %s:%d\n", *serverAddr, *serverPort)
-		}
-		reader := bufio.NewReader(server)
-		writer := bufio.NewWriter(server)
+                server, err := net.Dial("tcp", fmt.Sprintf("%s:%d", *serverAddr, *serverPort))
+                if err != nil {
+                        log.Fatalf("Error connecting to replica %s:%d\n", *serverAddr, *serverPort)
+                }
+                reader := bufio.NewReader(server)
+                writer := bufio.NewWriter(server)
 
-		orInfo := &outstandingRequestInfo{
-			sync.Mutex{},
-			make(map[int32]time.Time, *outstandingReqs),
-			make(map[int32]state.Operation, *outstandingReqs)}
+                orInfo := &outstandingRequestInfo{
+                        sync.Mutex{},
+                        make(map[int32]time.Time, *outstandingReqs),
+                        make(map[int32]state.Operation, *outstandingReqs)}
 
-		if *serverID != 0 { // not already connected to leader
-			leader, err := net.Dial("tcp", fmt.Sprintf("%s:%d", *leaderAddr, *leaderPort))
-			if err != nil {
-				log.Fatalf("Error connecting to replica %s:%d\n", *leaderAddr, *leaderPort)
-			}
+                if *serverID != 0 { // not already connected to leader
+                        leader, err := net.Dial("tcp", fmt.Sprintf("%s:%d", *leaderAddr, *leaderPort))
+                        if err != nil {
+                                log.Fatalf("Error connecting to replica %s:%d\n", *leaderAddr, *leaderPort)
+                        }
 
-			lReader := bufio.NewReader(leader)
-			lWriter := bufio.NewWriter(leader)
+                        lReader := bufio.NewReader(leader)
+                        lWriter := bufio.NewWriter(leader)
 
-			go simulatedClientWriter(writer, lWriter /* leader writer*/, orInfo, *serverID)
-			go simulatedClientReader(lReader, orInfo, readings, *serverID)
-			go simulatedClientReader(reader, orInfo, readings, *serverID)
-		} else {
-			go simulatedClientWriter(writer, nil /* leader writer*/, orInfo, *serverID)
-			go simulatedClientReader(reader, orInfo, readings, *serverID)
-		}
-		//waitTime := startTime.Intn(3)
-		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
+                        go simulatedClientWriter(writer, lWriter /* leader writer*/, orInfo, *serverID)
+                        go simulatedClientReader(lReader, orInfo, readings, *serverID)
+                        go simulatedClientReader(reader, orInfo, readings, *serverID)
+                } else {
+                        go simulatedClientWriter(writer, nil /* leader writer*/, orInfo, *serverID)
+                        go simulatedClientReader(reader, orInfo, readings, *serverID)
+                }
+                //waitTime := startTime.Intn(3)
+                //time.Sleep(time.Duration(waitTime) * 100 * 1e6)
 
-		orInfos[i] = orInfo
-	}
+                orInfos[i] = orInfo
+        }
 
-	if *singleClusterTest {
-		printerMultipleFile(readings, *serverID, experimentStart, rampDown, rampUp, timeout)
-	} else {
-		printer(readings)
-	}
+        if *singleClusterTest {
+                printerMultipleFile(readings, *serverID, experimentStart, rampDown, rampUp, timeout)
+        } else {
+                printer(readings)
+        }
 }
 
 func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *outstandingRequestInfo, serverID int) {
-	args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 1}, 0 /* timestamp */}
-	//args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
+        args := genericsmrproto.Propose{0 /* id */, state.Command{state.PUT, 0, 1}, 0 /* timestamp */}
+        //args := genericsmrproto.Propose{0, state.Command{state.PUT, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, 0}
 
-	conflictRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-	zipf := zipfian.NewZipfianGenerator(*zKeys, *theta)
-	poissonGenerator := poisson.NewPoisson(*poissonAvg)
-	opRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+        conflictRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+        zipf := zipfian.NewZipfianGenerator(*zKeys, *theta)
+        poissonGenerator := poisson.NewPoisson(*poissonAvg)
+        opRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	queuedReqs := 0 // The number of poisson departures that have been missed
-	for id := int32(0); id < 10000; id++ {
-		args.CommandId = id
+        queuedReqs := 0 // The number of poisson departures that have been missed
+        for id := int32(0); id < 10000; id++ {
+                args.CommandId = id
 
-		// Determine key
-		if *conflicts >= 0 {
-			r := conflictRand.Intn(100)
-			if r < *conflicts {
-				args.Command.K = 42
-			} else {
-				//args.Command.K = state.Key(*startRange + 43 + int(id % 888))
-				args.Command.K = state.Key(int32(*startRange) + 43 + id)
-			}
-		} else {
-			args.Command.K = state.Key(zipf.NextNumber())
-		}
+                // Determine key
+                if *conflicts >= 0 {
+                        r := conflictRand.Intn(100)
+                        if r < *conflicts {
+                                args.Command.K = 42
+                        } else {
+                                //args.Command.K = state.Key(*startRange + 43 + int(id % 888))
+                                args.Command.K = state.Key(int32(*startRange) + 43 + id)
+                        }
+                } else {
+                        args.Command.K = state.Key(zipf.NextNumber())
+                }
 
-		// Determine operation type
-		randNumber := opRand.Float64()
-		if *percentWrites+*percentRMWs > randNumber {
-			if *percentWrites > randNumber {
-				if !*blindWrites {
-					args.Command.Op = state.PUT // write operation
-				} else {
-					//args.Command.Op = state.PUT_BLIND
-				}
-			} else if *percentRMWs > 0 {
-				args.Command.Op = state.RMW // RMW operation
-			}
-		} else {
-			args.Command.Op = state.GET // read operation
-		}
+                // Determine operation type
+                randNumber := opRand.Float64()
+                if *percentWrites+*percentRMWs > randNumber {
+                        if *percentWrites > randNumber {
+                                if !*blindWrites {
+                                        args.Command.Op = state.PUT // write operation
+                                } else {
+                                        //args.Command.Op = state.PUT_BLIND
+                                }
+                        } else if *percentRMWs > 0 {
+                                args.Command.Op = state.RMW // RMW operation
+                        }
+                } else {
+                        args.Command.Op = state.GET // read operation
+                }
+
 
 		// somehow if leader has a read, the throughput is terrible...
 		if serverID == 0 {
 			args.Command.Op = state.PUT
 		}
 
-		if *poissonAvg != -1 {
-			time.Sleep(poissonGenerator.NextArrival())
-			queuedReqs += 1
-		}
+                if *poissonAvg != -1 {
+                        time.Sleep(poissonGenerator.NextArrival())
+                        queuedReqs += 1
+                }
 
-		before := time.Now()
-		if (args.Command.Op == state.RMW) && serverID != 0 { // send RMWs to leader
-			lWriter.WriteByte(genericsmrproto.PROPOSE)
-			args.Marshal(lWriter)
-			//lWriter.Flush()
-		} else {
-			writer.WriteByte(genericsmrproto.PROPOSE)
-			args.Marshal(writer)
-			//writer.Flush()
-		}
+                before := time.Now()
+                if (args.Command.Op == state.PUT || args.Command.Op == state.RMW) && serverID != 0 { // send RMWs to leader
+                        lWriter.WriteByte(genericsmrproto.PROPOSE)
+                        args.Marshal(lWriter)
+                        //lWriter.Flush()
+                } else {
+                        writer.WriteByte(genericsmrproto.PROPOSE)
+                        args.Marshal(writer)
+                        //writer.Flush()
+                }
 
-		orInfo.Lock()
-		orInfo.operation[args.CommandId] = args.Command.Op
-		orInfo.startTimes[args.CommandId] = before
-		orInfo.Unlock()
-	}
+                orInfo.Lock()
+                orInfo.operation[args.CommandId] = args.Command.Op
+                orInfo.startTimes[args.CommandId] = before
+                orInfo.Unlock()
+        }
 
-	if serverID != 0 {
-		lWriter.Flush()
-	}
-	writer.Flush()
+        if serverID != 0 {
+                lWriter.Flush()
+        }
+        writer.Flush()
 
 }
 
 func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo, readings chan *response, leader int) {
-	var reply genericsmrproto.ProposeReplyTS
+        var reply genericsmrproto.ProposeReplyTS
 
-	for {
-		time.Sleep(1 * time.Millisecond)
-		if err := reply.Unmarshal(reader); err != nil || reply.OK == 0 {
-			log.Println(reply.OK)
-			log.Println(reply.CommandId)
-			log.Println("Error when reading:", err)
-			break
-		}
-		after := time.Now()
+        for {
+                time.Sleep(1 * time.Millisecond)
+                if err := reply.Unmarshal(reader); err != nil || reply.OK == 0 {
+                        log.Println(reply.OK)
+                        log.Println(reply.CommandId)
+                        log.Println("Error when reading:", err)
+                        break
+                }
+                after := time.Now()
 
-		orInfo.Lock()
-		before := orInfo.startTimes[reply.CommandId]
-		operation := orInfo.operation[reply.CommandId]
-		delete(orInfo.startTimes, reply.CommandId)
-		orInfo.Unlock()
+                orInfo.Lock()
+                before := orInfo.startTimes[reply.CommandId]
+                operation := orInfo.operation[reply.CommandId]
+                delete(orInfo.startTimes, reply.CommandId)
+                orInfo.Unlock()
 
-		rtt := (after.Sub(before)).Seconds() * 1000
-		//commitToExec := float64(reply.Timestamp) / 1e6
-		commitLatency := float64(0) //rtt - commitToExec
-		readings <- &response{
-			after,
-			rtt,
-			commitLatency,
-			operation,
-			leader}
+                rtt := (after.Sub(before)).Seconds() * 1000
+                //commitToExec := float64(reply.Timestamp) / 1e6
+                commitLatency := float64(0) //rtt - commitToExec
+                readings <- &response{
+                        after,
+                        rtt,
+                        commitLatency,
+                        operation,
+                        leader}
 
-	}
+        }
 }
 
 func printer(readings chan *response) {
 
-	lattputFile, err := os.Create("lattput.txt")
-	if err != nil {
-		log.Println("Error creating lattput file", err)
-		return
-	}
-	//lattputFile.WriteString("# time (ns), avg lat over the past second, tput since last line, total count, totalOrs, avg commit lat over the past second\n")
+        lattputFile, err := os.Create("lattput.txt")
+        if err != nil {
+                log.Println("Error creating lattput file", err)
+                return
+        }
+        //lattputFile.WriteString("# time (ns), avg lat over the past second, tput since last line, total count, totalOrs, avg commit lat over the past second\n")
 
-	latFile, err := os.Create("latency.txt")
-	if err != nil {
-		log.Println("Error creating latency file", err)
-		return
-	}
-	//latFile.WriteString("# time (ns), latency, commit latency\n")
+        latFile, err := os.Create("latency.txt")
+        if err != nil {
+                log.Println("Error creating latency file", err)
+                return
+        }
+        //latFile.WriteString("# time (ns), latency, commit latency\n")
 
-	startTime := time.Now()
+        startTime := time.Now()
 
-	for {
-		time.Sleep(time.Second)
+        for {
+                time.Sleep(time.Second)
 
-		count := len(readings)
-		var sum float64 = 0
-		var commitSum float64 = 0
-		endTime := time.Now() // Set to current time in case there are no readings
-		for i := 0; i < count; i++ {
-			resp := <-readings
+                count := len(readings)
+                var sum float64 = 0
+                var commitSum float64 = 0
+                endTime := time.Now() // Set to current time in case there are no readings
+                for i := 0; i < count; i++ {
+                        resp := <-readings
 
-			// Log all to latency file
-			latFile.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
-			sum += resp.rtt
-			commitSum += resp.commitLatency
-			endTime = resp.receivedAt
-		}
+                        // Log all to latency file
+                        latFile.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+                        sum += resp.rtt
+                        commitSum += resp.commitLatency
+                        endTime = resp.receivedAt
+                }
 
-		var avg float64
-		var avgCommit float64
-		var tput float64
-		if count > 0 {
-			avg = sum / float64(count)
-			avgCommit = commitSum / float64(count)
-			tput = float64(count) / endTime.Sub(startTime).Seconds()
-		}
+                var avg float64
+                var avgCommit float64
+                var tput float64
+                if count > 0 {
+                        avg = sum / float64(count)
+                        avgCommit = commitSum / float64(count)
+                        tput = float64(count) / endTime.Sub(startTime).Seconds()
+                }
 
-		totalOrs := 0
-		for i := 0; i < *T; i++ {
-			orInfos[i].Lock()
-			totalOrs += len(orInfos[i].startTimes)
-			orInfos[i].Unlock()
-		}
+                totalOrs := 0
+                for i := 0; i < *T; i++ {
+                        orInfos[i].Lock()
+                        totalOrs += len(orInfos[i].startTimes)
+                        orInfos[i].Unlock()
+                }
 
-		// Log summary to lattput file
-		lattputFile.WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(),
-			avg, tput, count, totalOrs, avgCommit))
+                // Log summary to lattput file
+                lattputFile.WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(),
+                        avg, tput, count, totalOrs, avgCommit))
 
-		startTime = endTime
-	}
+                startTime = endTime
+        }
 }
 
 func printerMultipleFile(readings chan *response, replicaID int, experimentStart time.Time, rampDown, rampUp, timeout *int) {
-	fileName := fmt.Sprintf("lattput-%d.txt", replicaID)
-	lattputFile, err := os.Create(fileName)
-	if err != nil {
-		log.Println("Error creating lattput file", err)
-		return
-	}
+        fileName := fmt.Sprintf("lattput-%d.txt", replicaID)
+        lattputFile, err := os.Create(fileName)
+        if err != nil {
+                log.Println("Error creating lattput file", err)
+                return
+        }
 
-	fileName = fmt.Sprintf("latFileRead-%d.txt", replicaID)
-	latFileRead, err := os.Create(fileName)
-	if err != nil {
-		log.Println("Error creating latency file", err)
-		return
-	}
-	//latFile.WriteString("# time (ns), latency, commit latency\n")
+        fileName = fmt.Sprintf("latFileRead-%d.txt", replicaID)
+        latFileRead, err := os.Create(fileName)
+        if err != nil {
+                log.Println("Error creating latency file", err)
+                return
+        }
+        //latFile.WriteString("# time (ns), latency, commit latency\n")
 
-	fileName = fmt.Sprintf("latFileWrite-%d.txt", replicaID)
-	latFileWrite, err := os.Create(fileName)
-	if err != nil {
-		log.Println("Error creating latency file", err)
-		return
-	}
+        fileName = fmt.Sprintf("latFileWrite-%d.txt", replicaID)
+        latFileWrite, err := os.Create(fileName)
+        if err != nil {
+                log.Println("Error creating latency file", err)
+                return
+        }
 
-	fileName = fmt.Sprintf("latFileRMW-%d.txt", replicaID)
-	latFileRMW, err := os.Create(fileName)
-	if err != nil {
-		log.Println("Error creating latency file", err)
-		return
-	}
+        fileName = fmt.Sprintf("latFileRMW-%d.txt", replicaID)
+        latFileRMW, err := os.Create(fileName)
+        if err != nil {
+                log.Println("Error creating latency file", err)
+                return
+        }
 
-	startTime := time.Now()
+        startTime := time.Now()
 
-	for {
-		time.Sleep(time.Second)
+        for {
+                time.Sleep(time.Second)
 
-		count := len(readings)
-		var sum float64 = 0
-		var commitSum float64 = 0
-		endTime := time.Now() // Set to current time in case there are no readings
-		currentRuntime := time.Now().Sub(experimentStart)
-		for i := 0; i < count; i++ {
-			resp := <-readings
-			// Log all to latency file if they are not within the ramp up or ramp down period.
-			if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout-*rampDown {
-				if resp.operation == state.GET {
-					latFileRead.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
-				} else if resp.operation == state.PUT {
-					latFileWrite.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
-				} else { // rmw
-					latFileRMW.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
-				}
-				sum += resp.rtt
-				commitSum += resp.commitLatency
-				endTime = resp.receivedAt
-			}
-		}
+                count := len(readings)
+                var sum float64 = 0
+                var commitSum float64 = 0
+                endTime := time.Now() // Set to current time in case there are no readings
+                currentRuntime := time.Now().Sub(experimentStart)
+                for i := 0; i < count; i++ {
+                        resp := <-readings
+                        // Log all to latency file if they are not within the ramp up or ramp down period.
+                        if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout-*rampDown {
+                                if resp.operation == state.GET {
+                                        latFileRead.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+                                } else if resp.operation == state.PUT {
+                                        latFileWrite.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+                                } else { // rmw
+                                        latFileRMW.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+                                }
+                                sum += resp.rtt
+                                commitSum += resp.commitLatency
+                                endTime = resp.receivedAt
+                        }
+                }
 
-		var avg float64
-		var avgCommit float64
-		var tput float64
-		if count > 0 {
-			avg = sum / float64(count)
-			avgCommit = commitSum / float64(count)
-			log.Println("this count", count)
-			tput = float64(count) / endTime.Sub(startTime).Seconds()
-		}
+                var avg float64
+                var avgCommit float64
+                var tput float64
+                if count > 0 {
+                        avg = sum / float64(count)
+                        avgCommit = commitSum / float64(count)
+                        log.Println("this count", count)
+                        tput = float64(count) / endTime.Sub(startTime).Seconds()
+                }
 
-		totalOrs := 0
-		for i := 0; i < *T; i++ {
-			orInfos[i].Lock()
-			totalOrs += len(orInfos[i].startTimes)
-			orInfos[i].Unlock()
-		}
+                totalOrs := 0
+                for i := 0; i < *T; i++ {
+                        orInfos[i].Lock()
+                        totalOrs += len(orInfos[i].startTimes)
+                        orInfos[i].Unlock()
+                }
 
-		// Log summary to lattput file
-		//lattputFile.WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(), avg, tput, count, totalOrs, avgCommit))
-		// Log all to latency file if they are not within the ramp up or ramp down period.
-		if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout-*rampDown {
-			lattputFile.WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(), avg, tput, count, totalOrs, avgCommit))
-		}
-		startTime = endTime
-	}
+                // Log summary to lattput file
+                //lattputFile.WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(), avg, tput, count, totalOrs, avgCommit))
+                // Log all to latency file if they are not within the ramp up or ramp down period.
+                if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout-*rampDown {
+                        lattputFile.WriteString(fmt.Sprintf("%d %f %f %d %d %f\n", endTime.UnixNano(), avg, tput, count, totalOrs, avgCommit))
+                }
+                startTime = endTime
+        }
 }
