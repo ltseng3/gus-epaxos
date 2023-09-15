@@ -162,9 +162,9 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 
 
 		// somehow if leader has a read, the throughput is terrible...
-		if serverID == 0 {
-			args.Command.Op = state.PUT
-		}
+		//if serverID == 0 {
+		//	args.Command.Op = state.PUT
+		//}
 
                 if *poissonAvg != -1 {
                         time.Sleep(poissonGenerator.NextArrival())
