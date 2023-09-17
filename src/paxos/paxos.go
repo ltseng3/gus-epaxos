@@ -208,6 +208,9 @@ func (r *Replica) run() {
 	clockChan = make(chan bool, 1)
 	go r.clock()
 
+	pendingReadChan = make(chan *genericsmr.Propose, 1000000)
+	indexChan = make(chan int32, 1000000)
+
 	onOffProposeChan := r.ProposeChan
 
 	for !r.Shutdown {
@@ -419,6 +422,7 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 }
 
 func (r *Replica) handlePropose(propose *genericsmr.Propose) {
+	log.Println("got a command")
 	// got read command
 	if propose.Command.Op == state.GET {
 		readId := r.crtRead
@@ -724,8 +728,14 @@ func (r *Replica) executeCommands() {
 				executed = true
 
 				// reply to pending read request after execution
-				proposals := r.readsPending[i]
-				r.readsPending[i] = nil
+				
+				
+				/*
+				if i > 999 {
+					proposals := r.readsPending[i-1000]
+					r.readsPending[i-1000] = nil
+				
+
 				if proposals != nil {
 					for _, prop := range proposals {
 						propreply := &genericsmrproto.ProposeReplyTS{
@@ -736,6 +746,8 @@ func (r *Replica) executeCommands() {
 						r.ReplyProposeTS(propreply, prop.Reply)
 					}
 				}
+				}
+				*/
 
 				i++
 			} else {
@@ -754,7 +766,6 @@ var pr paxosproto.Read
 
 // broadcast read to other replicas
 func (r *Replica) bcastRead(readId int32) {
-	log.Println("sending read")
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Read bcast failed:", err)
@@ -829,15 +840,42 @@ func (r *Replica) handleReadReply(readReply *paxosproto.ReadReply) {
 			propreply := &genericsmrproto.ProposeReplyTS{
 				TRUE,
 				r.readProposal[readReply.ReadId].CommandId,
-				r.instanceSpace[largestSlot].cmds[0].V,
+				0,
 				r.readProposal[readReply.ReadId].Timestamp}
 			r.ReplyProposeTS(propreply, r.readProposal[readReply.ReadId].Reply)
 
 			r.readProposal[readReply.ReadId] = nil
 		} else {
-			r.readsPending[largestSlot] = append(
-				r.readsPending[largestSlot],
-				r.readProposal[readReply.ReadId])
+			//go r.execRead(r.readProposal[readReply.ReadId], largestSlot)
+			pendingReadChan <- r.readProposal[readReply.ReadId]
+			indexChan <- largestSlot
+		//	r.readsPending[largestSlot] = append(
+		//		r.readsPending[largestSlot],
+		//		r.readProposal[readReply.ReadId])
 		}
 	}
 }
+
+//func (r *Replica) execRead(read *genericsmr.Propose, slotIndex int32){
+func (r *Replica) execRead(){
+		for !r.Shutdown {
+			read := <-pendingReadChan
+			slotIndex :=  <-indexChan
+			
+			for slotIndex >= r.executedUpTo {
+				time.Sleep(1000)
+			}
+				propreply := &genericsmrproto.ProposeReplyTS{
+					TRUE,
+					read.CommandId,
+					0, // this Val needs to be fixed
+					read.Timestamp}
+				r.ReplyProposeTS(propreply, read.Reply)
+			//}
+			//time.Sleep(CLOCK)
+		}
+	
+}
+
+var pendingReadChan chan *genericsmr.Propose
+var indexChan chan int32

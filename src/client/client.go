@@ -2,10 +2,8 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"flag"
 	"fmt"
-	"golang.org/x/sync/semaphore"
 	"gus-epaxos/src/genericsmrproto"
 	"gus-epaxos/src/poisson"
 	"gus-epaxos/src/state"
@@ -24,6 +22,7 @@ var leaderPort *int = flag.Int("lport", 7070, "Leader port.")
 var serverAddr *string = flag.String("saddr", "", "Server address.")
 var serverPort *int = flag.Int("sport", 7070, "Server port.")
 var serverID *int = flag.Int("serverID", 0, "Server's ID")
+var hasLeader = flag.Bool("hasLeader", true, "Whether the protocol have a leader. Defaults to true")
 var procs *int = flag.Int("p", 2, "GOMAXPROCS.")
 var conflicts *int = flag.Int("c", 0, "Percentage of conflicts. If -1, uses Zipfian distribution.")
 var forceLeader = flag.Int("l", -1, "Force client to talk to a certain replica.")
@@ -54,7 +53,6 @@ type response struct {
 // yet received responses
 type outstandingRequestInfo struct {
 	sync.Mutex
-	sema       *semaphore.Weighted // Controls number of outstanding operations
 	startTimes map[int32]time.Time // The time at which operations were sent out
 	operation  map[int32]state.Operation
 }
@@ -73,7 +71,7 @@ func main() {
 
 	orInfos = make([]*outstandingRequestInfo, *T)
 
-	readings := make(chan *response, 100000)
+	readings := make(chan *response, 1000000)
 	//startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
 	experimentStart := time.Now()
 
@@ -89,10 +87,10 @@ func main() {
 
 		orInfo := &outstandingRequestInfo{
 			sync.Mutex{},
-			semaphore.NewWeighted(*outstandingReqs),
 			make(map[int32]time.Time, *outstandingReqs),
 			make(map[int32]state.Operation, *outstandingReqs)}
 
+		/*
 		if *serverID != 0 { // not already connected to leader
 			leader, err := net.Dial("tcp", fmt.Sprintf("%s:%d", *leaderAddr, *leaderPort))
 			if err != nil {
@@ -102,13 +100,16 @@ func main() {
 			lReader := bufio.NewReader(leader)
 			lWriter := bufio.NewWriter(leader)
 
-			go simulatedClientWriter(writer, lWriter /* leader writer*/, orInfo, *serverID)
-			go simulatedClientReader(lReader, orInfo, readings, *serverID)
+			go simulatedClientWriter(writer, lWriter, orInfo, *serverID)
+			//go simulatedClientReader(lReader, orInfo, readings, *serverID)
 			go simulatedClientReader(reader, orInfo, readings, *serverID)
 		} else {
-			go simulatedClientWriter(writer, nil /* leader writer*/, orInfo, *serverID)
+			go simulatedClientWriter(writer, nil, orInfo, *serverID)
 			go simulatedClientReader(reader, orInfo, readings, *serverID)
 		}
+		*/
+		go simulatedClientWriter(writer, nil /* leader writer*/, orInfo, *serverID)
+                go simulatedClientReader(reader, orInfo, readings, *serverID)
 		//waitTime := startTime.Intn(3)
 		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
 
@@ -132,7 +133,7 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 	opRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	queuedReqs := 0 // The number of poisson departures that have been missed
-	for id := int32(0); ; id++ {
+	for id := int32(0); id < 500000; id++ {
 		args.CommandId = id
 
 		// Determine key
@@ -164,47 +165,54 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 			args.Command.Op = state.GET // read operation
 		}
 
-		if *poissonAvg == -1 { // Poisson disabled
-			orInfo.sema.Acquire(context.Background(), 1)
-		} else {
-			for {
-				if orInfo.sema.TryAcquire(1) {
-					if queuedReqs == 0 {
-						time.Sleep(poissonGenerator.NextArrival())
-					} else {
-						queuedReqs -= 1
-					}
-					break
-				}
-				time.Sleep(poissonGenerator.NextArrival())
-				queuedReqs += 1
-			}
+		// somehow if leader has a read, the throughput is terrible...
+		//if serverID == 0 {
+		//	args.Command.Op = state.PUT
+		//}
+
+		if *poissonAvg != -1 {
+			time.Sleep(poissonGenerator.NextArrival())
+			queuedReqs += 1
 		}
 
 		before := time.Now()
-		if (args.Command.Op == state.RMW || args.Command.Op == state.PUT) && serverID != 0 { // send RMWs to leader
+
+		/*
+		if (args.Command.Op == state.PUT || args.Command.Op == state.RMW) && serverID != 0 { // send RMWs to leader
 			lWriter.WriteByte(genericsmrproto.PROPOSE)
 			args.Marshal(lWriter)
-			lWriter.Flush()
+			//lWriter.Flush()
 		} else {
 			writer.WriteByte(genericsmrproto.PROPOSE)
 			args.Marshal(writer)
-			writer.Flush()
+			//writer.Flush()
 		}
+		*/
 
-		log.Println("sent: ", args.CommandId)
+		writer.WriteByte(genericsmrproto.PROPOSE)
+		args.Marshal(writer)
+
 
 		orInfo.Lock()
 		orInfo.operation[args.CommandId] = args.Command.Op
 		orInfo.startTimes[args.CommandId] = before
 		orInfo.Unlock()
 	}
+
+	/*
+	if serverID != 0 {
+		lWriter.Flush()
+	}
+	writer.Flush()
+	*/
+	writer.Flush()
 }
 
 func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo, readings chan *response, leader int) {
 	var reply genericsmrproto.ProposeReplyTS
 
 	for {
+		time.Sleep(1 * time.Millisecond)
 		if err := reply.Unmarshal(reader); err != nil || reply.OK == 0 {
 			log.Println(reply.OK)
 			log.Println(reply.CommandId)
@@ -212,22 +220,21 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 			break
 		}
 		after := time.Now()
-		orInfo.sema.Release(1)
 
-		orInfo.Lock()
-		before := orInfo.startTimes[reply.CommandId]
-		operation := orInfo.operation[reply.CommandId]
-		delete(orInfo.startTimes, reply.CommandId)
-		orInfo.Unlock()
+		//orInfo.Lock()
+		//before := //orInfo.startTimes[reply.CommandId]
+		//operation := orInfo.operation[reply.CommandId]
+		//delete(orInfo.startTimes, reply.CommandId)
+		//orInfo.Unlock()
 
-		rtt := (after.Sub(before)).Seconds() * 1000
+		rtt := float64(0)//(after.Sub(before)).Seconds() * 1000
 		//commitToExec := float64(reply.Timestamp) / 1e6
 		commitLatency := float64(0) //rtt - commitToExec
 		readings <- &response{
 			after,
 			rtt,
 			commitLatency,
-			operation,
+			state.PUT,//operation,
 			leader}
 
 	}
@@ -355,6 +362,7 @@ func printerMultipleFile(readings chan *response, replicaID int, experimentStart
 		if count > 0 {
 			avg = sum / float64(count)
 			avgCommit = commitSum / float64(count)
+			log.Println("this count", count)
 			tput = float64(count) / endTime.Sub(startTime).Seconds()
 		}
 
