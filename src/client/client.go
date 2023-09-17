@@ -71,7 +71,7 @@ func main() {
 
 	orInfos = make([]*outstandingRequestInfo, *T)
 
-	readings := make(chan *response, 100000)
+	readings := make(chan *response, 1000000)
 	//startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
 	experimentStart := time.Now()
 
@@ -90,6 +90,7 @@ func main() {
 			make(map[int32]time.Time, *outstandingReqs),
 			make(map[int32]state.Operation, *outstandingReqs)}
 
+		/*
 		if *serverID != 0 { // not already connected to leader
 			leader, err := net.Dial("tcp", fmt.Sprintf("%s:%d", *leaderAddr, *leaderPort))
 			if err != nil {
@@ -99,13 +100,16 @@ func main() {
 			lReader := bufio.NewReader(leader)
 			lWriter := bufio.NewWriter(leader)
 
-			go simulatedClientWriter(writer, lWriter /* leader writer*/, orInfo, *serverID)
-			go simulatedClientReader(lReader, orInfo, readings, *serverID)
+			go simulatedClientWriter(writer, lWriter, orInfo, *serverID)
+			//go simulatedClientReader(lReader, orInfo, readings, *serverID)
 			go simulatedClientReader(reader, orInfo, readings, *serverID)
 		} else {
-			go simulatedClientWriter(writer, nil /* leader writer*/, orInfo, *serverID)
+			go simulatedClientWriter(writer, nil, orInfo, *serverID)
 			go simulatedClientReader(reader, orInfo, readings, *serverID)
 		}
+		*/
+		go simulatedClientWriter(writer, nil /* leader writer*/, orInfo, *serverID)
+                go simulatedClientReader(reader, orInfo, readings, *serverID)
 		//waitTime := startTime.Intn(3)
 		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
 
@@ -129,7 +133,7 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 	opRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	queuedReqs := 0 // The number of poisson departures that have been missed
-	for id := int32(0); id < 10000; id++ {
+	for id := int32(0); id < 500000; id++ {
 		args.CommandId = id
 
 		// Determine key
@@ -172,6 +176,8 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 		}
 
 		before := time.Now()
+
+		/*
 		if (args.Command.Op == state.PUT || args.Command.Op == state.RMW) && serverID != 0 { // send RMWs to leader
 			lWriter.WriteByte(genericsmrproto.PROPOSE)
 			args.Marshal(lWriter)
@@ -181,6 +187,11 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 			args.Marshal(writer)
 			//writer.Flush()
 		}
+		*/
+
+		writer.WriteByte(genericsmrproto.PROPOSE)
+		args.Marshal(writer)
+
 
 		orInfo.Lock()
 		orInfo.operation[args.CommandId] = args.Command.Op
@@ -188,11 +199,13 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 		orInfo.Unlock()
 	}
 
+	/*
 	if serverID != 0 {
 		lWriter.Flush()
 	}
 	writer.Flush()
-
+	*/
+	writer.Flush()
 }
 
 func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo, readings chan *response, leader int) {
@@ -208,20 +221,20 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 		}
 		after := time.Now()
 
-		orInfo.Lock()
-		before := orInfo.startTimes[reply.CommandId]
-		operation := orInfo.operation[reply.CommandId]
-		delete(orInfo.startTimes, reply.CommandId)
-		orInfo.Unlock()
+		//orInfo.Lock()
+		//before := //orInfo.startTimes[reply.CommandId]
+		//operation := orInfo.operation[reply.CommandId]
+		//delete(orInfo.startTimes, reply.CommandId)
+		//orInfo.Unlock()
 
-		rtt := (after.Sub(before)).Seconds() * 1000
+		rtt := float64(0)//(after.Sub(before)).Seconds() * 1000
 		//commitToExec := float64(reply.Timestamp) / 1e6
 		commitLatency := float64(0) //rtt - commitToExec
 		readings <- &response{
 			after,
 			rtt,
 			commitLatency,
-			operation,
+			state.PUT,//operation,
 			leader}
 
 	}
