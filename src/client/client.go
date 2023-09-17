@@ -17,12 +17,10 @@ import (
 	"time"
 )
 
-var leaderAddr *string = flag.String("laddr", "10.10.1.2", "Leader address. Defaults to 10.10.1.2")
-var leaderPort *int = flag.Int("lport", 7070, "Leader port.")
 var serverAddr *string = flag.String("saddr", "", "Server address.")
 var serverPort *int = flag.Int("sport", 7070, "Server port.")
 var serverID *int = flag.Int("serverID", 0, "Server's ID")
-var hasLeader = flag.Bool("hasLeader", true, "Whether the protocol have a leader. Defaults to true")
+var serverCount *int = flag.Int("serverCount", 5, "number of servers in experiment")
 var procs *int = flag.Int("p", 2, "GOMAXPROCS.")
 var conflicts *int = flag.Int("c", 0, "Percentage of conflicts. If -1, uses Zipfian distribution.")
 var forceLeader = flag.Int("l", -1, "Force client to talk to a certain replica.")
@@ -60,6 +58,17 @@ type outstandingRequestInfo struct {
 // An outstandingRequestInfo per client thread
 var orInfos []*outstandingRequestInfo
 
+// increment the ip by the change argument, return it as a string
+func incrementIP(addr string, change int) string {
+	ip := net.ParseIP(addr)
+	ip = ip.To4()
+	// check ip != nil
+	for i := 0; i < change; i++ {
+		ip[3]++ // check for rollover
+	}
+	return ip.String()
+}
+
 func main() {
 	flag.Parse()
 
@@ -75,13 +84,21 @@ func main() {
 	//startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
 	experimentStart := time.Now()
 
+	serverCounter := 0
 	for i := 0; i < *T; i++ { // i is later used as client's id
-		log.Println("Connected to node: ", *serverAddr)
+		if serverCounter == *serverCount { // loop back to first server
+			serverCounter = 0
+		}
 
-		server, err := net.Dial("tcp", fmt.Sprintf("%s:%d", *serverAddr, *serverPort))
+		addr := incrementIP(*serverAddr, serverCounter) // get ip of next server
+		log.Println("Connected to node: ", addr)
+
+		server, err := net.Dial("tcp", fmt.Sprintf("%s:%d", addr, *serverPort))
 		if err != nil {
 			log.Fatalf("Error connecting to replica %s:%d\n", *serverAddr, *serverPort)
 		}
+		serverCounter++
+
 		reader := bufio.NewReader(server)
 		writer := bufio.NewWriter(server)
 
@@ -91,25 +108,25 @@ func main() {
 			make(map[int32]state.Operation, *outstandingReqs)}
 
 		/*
-		if *serverID != 0 { // not already connected to leader
-			leader, err := net.Dial("tcp", fmt.Sprintf("%s:%d", *leaderAddr, *leaderPort))
-			if err != nil {
-				log.Fatalf("Error connecting to replica %s:%d\n", *leaderAddr, *leaderPort)
+			if *serverID != 0 { // not already connected to leader
+				leader, err := net.Dial("tcp", fmt.Sprintf("%s:%d", *leaderAddr, *leaderPort))
+				if err != nil {
+					log.Fatalf("Error connecting to replica %s:%d\n", *leaderAddr, *leaderPort)
+				}
+
+				lReader := bufio.NewReader(leader)
+				lWriter := bufio.NewWriter(leader)
+
+				go simulatedClientWriter(writer, lWriter, orInfo, *serverID)
+				//go simulatedClientReader(lReader, orInfo, readings, *serverID)
+				go simulatedClientReader(reader, orInfo, readings, *serverID)
+			} else {
+				go simulatedClientWriter(writer, nil, orInfo, *serverID)
+				go simulatedClientReader(reader, orInfo, readings, *serverID)
 			}
-
-			lReader := bufio.NewReader(leader)
-			lWriter := bufio.NewWriter(leader)
-
-			go simulatedClientWriter(writer, lWriter, orInfo, *serverID)
-			//go simulatedClientReader(lReader, orInfo, readings, *serverID)
-			go simulatedClientReader(reader, orInfo, readings, *serverID)
-		} else {
-			go simulatedClientWriter(writer, nil, orInfo, *serverID)
-			go simulatedClientReader(reader, orInfo, readings, *serverID)
-		}
 		*/
 		go simulatedClientWriter(writer, nil /* leader writer*/, orInfo, *serverID)
-                go simulatedClientReader(reader, orInfo, readings, *serverID)
+		go simulatedClientReader(reader, orInfo, readings, *serverID)
 		//waitTime := startTime.Intn(3)
 		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
 
@@ -178,20 +195,19 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 		before := time.Now()
 
 		/*
-		if (args.Command.Op == state.PUT || args.Command.Op == state.RMW) && serverID != 0 { // send RMWs to leader
-			lWriter.WriteByte(genericsmrproto.PROPOSE)
-			args.Marshal(lWriter)
-			//lWriter.Flush()
-		} else {
-			writer.WriteByte(genericsmrproto.PROPOSE)
-			args.Marshal(writer)
-			//writer.Flush()
-		}
+			if (args.Command.Op == state.PUT || args.Command.Op == state.RMW) && serverID != 0 { // send RMWs to leader
+				lWriter.WriteByte(genericsmrproto.PROPOSE)
+				args.Marshal(lWriter)
+				//lWriter.Flush()
+			} else {
+				writer.WriteByte(genericsmrproto.PROPOSE)
+				args.Marshal(writer)
+				//writer.Flush()
+			}
 		*/
 
 		writer.WriteByte(genericsmrproto.PROPOSE)
 		args.Marshal(writer)
-
 
 		orInfo.Lock()
 		orInfo.operation[args.CommandId] = args.Command.Op
@@ -200,10 +216,10 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 	}
 
 	/*
-	if serverID != 0 {
-		lWriter.Flush()
-	}
-	writer.Flush()
+		if serverID != 0 {
+			lWriter.Flush()
+		}
+		writer.Flush()
 	*/
 	writer.Flush()
 }
@@ -227,14 +243,14 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 		//delete(orInfo.startTimes, reply.CommandId)
 		//orInfo.Unlock()
 
-		rtt := float64(0)//(after.Sub(before)).Seconds() * 1000
+		rtt := float64(0) //(after.Sub(before)).Seconds() * 1000
 		//commitToExec := float64(reply.Timestamp) / 1e6
 		commitLatency := float64(0) //rtt - commitToExec
 		readings <- &response{
 			after,
 			rtt,
 			commitLatency,
-			state.PUT,//operation,
+			state.PUT, //operation,
 			leader}
 
 	}
