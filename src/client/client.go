@@ -84,20 +84,14 @@ func main() {
 	//startTime := rand.New(rand.NewSource(time.Now().UnixNano()))
 	experimentStart := time.Now()
 
-	serverCounter := 0
 	for i := 0; i < *T; i++ { // i is later used as client's id
-		if serverCounter == *serverCount { // loop back to first server
-			serverCounter = 0
-		}
-
-		addr := incrementIP(*serverAddr, serverCounter) // get ip of next server
+		addr := incrementIP(*serverAddr, i%*serverCount) // get ip of next server
 		log.Println("Connected to node: ", addr)
 
 		server, err := net.Dial("tcp", fmt.Sprintf("%s:%d", addr, *serverPort))
 		if err != nil {
 			log.Fatalf("Error connecting to replica %s:%d\n", *serverAddr, *serverPort)
 		}
-		serverCounter++
 
 		reader := bufio.NewReader(server)
 		writer := bufio.NewWriter(server)
