@@ -21,8 +21,8 @@ import (
 	"time"
 )
 
-var masterAddr *string = flag.String("maddr", "", "Master address. Defaults to localhost")
-var masterPort *int = flag.Int("mport", 7087, "Master port.")
+var masterAddr *string = flag.String("saddr", "", "Master address. Defaults to localhost")
+var masterPort *int = flag.Int("sport", 7087, "Master port.")
 var procs *int = flag.Int("p", 2, "GOMAXPROCS.")
 var conflicts *int = flag.Int("c", 0, "Percentage of conflicts. If -1, uses Zipfian distribution.")
 var forceLeader = flag.Int("l", -1, "Force client to talk to a certain replica.")
@@ -38,6 +38,11 @@ var singleClusterTest = flag.Bool("singleClusterTest", true, "True if clients ru
 var rampDown *int = flag.Int("rampDown", 15, "Length of the cool-down period after statistics are measured (in seconds).")
 var rampUp *int = flag.Int("rampUp", 15, "Length of the warm-up period before statistics are measured (in seconds).")
 var timeout *int = flag.Int("timeout", 180, "Length of the timeout used when running the client")
+
+// unused flags included to simplify testing
+var serverID *int = flag.Int("serverID", 0, "Server's ID")
+var serverCount *int = flag.Int("serverCount", 5, "number of servers in experiment")
+var percentRMWs = flag.Float64("rmws", 0, "A float between 0 and 1 that corresponds to the percentage of writes that should be RMWs. The remainder will be regular writes.")
 
 // Information about the latency of an operation
 type response struct {
