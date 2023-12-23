@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-var masterAddr *string = flag.String("laddr", "10.10.1.2", "Leader address. Defaults to 10.10.1.2")
+var masterAddr *string = flag.String("laddr", "10.10.1.1", "Leader address. Defaults to 10.10.1.1")
 var masterPort *int = flag.Int("lport", 7070, "Leader port.")
 var serverAddr *string = flag.String("saddr", "", "Server address. Defaults to localhost")
 var serverPort *int = flag.Int("sport", 7087, "Server port.")
@@ -115,7 +115,6 @@ func main() {
 	experimentStart := time.Now()
 
 	for i := 0; i < *T; i++ {
-
 		// automatically allocate clients equally
 		if *singleClusterTest {
 			leader = i % len(rlReply.ReplicaList)
