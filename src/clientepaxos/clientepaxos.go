@@ -23,8 +23,6 @@ import (
 
 var masterAddr *string = flag.String("laddr", "10.10.1.1", "Leader address. Defaults to 10.10.1.1")
 var masterPort *int = flag.Int("lport", 7087, "Leader port.")
-var serverAddr *string = flag.String("saddr", "", "Server address. Defaults to localhost")
-var serverPort *int = flag.Int("sport", 7070, "Server port.")
 var procs *int = flag.Int("p", 2, "GOMAXPROCS.")
 var conflicts *int = flag.Int("c", 0, "Percentage of conflicts. If -1, uses Zipfian distribution.")
 var forceLeader = flag.Int("l", -1, "Force client to talk to a certain replica.")
@@ -35,6 +33,8 @@ var theta = flag.Float64("theta", 0.99, "Theta zipfian parameter")
 var zKeys = flag.Uint64("z", 1e9, "Number of unique keys in zipfian distribution.")
 var poissonAvg = flag.Int("poisson", -1, "The average number of microseconds between requests. -1 disables Poisson.")
 var percentWrites = flag.Float64("writes", 1, "A float between 0 and 1 that corresponds to the percentage of requests that should be writes. The remainder will be reads.")
+var percentRMWs = flag.Float64("rmws", 0, "A float between 0 and 1 that corresponds to the percentage of writes that should be RMWs. The remainder will be regular writes.")
+
 var blindWrites = flag.Bool("blindwrites", false, "True if writes don't need to execute before clients receive responses.")
 var singleClusterTest = flag.Bool("singleClusterTest", true, "True if clients run on a VM in a single cluster")
 var rampDown *int = flag.Int("rampDown", 15, "Length of the cool-down period after statistics are measured (in seconds).")
@@ -42,9 +42,10 @@ var rampUp *int = flag.Int("rampUp", 15, "Length of the warm-up period before st
 var timeout *int = flag.Int("timeout", 180, "Length of the timeout used when running the client")
 
 // unused flags included to simplify testing
+var serverAddr *string = flag.String("saddr", "", "Server address. Defaults to localhost")
+var serverPort *int = flag.Int("sport", 7070, "Server port.")
 var serverID *int = flag.Int("serverID", 0, "Server's ID")
 var serverCount *int = flag.Int("serverCount", 5, "number of servers in experiment")
-var percentRMWs = flag.Float64("rmws", 0, "A float between 0 and 1 that corresponds to the percentage of writes that should be RMWs. The remainder will be regular writes.")
 
 // Information about the latency of an operation
 type response struct {
@@ -143,7 +144,7 @@ func main() {
 	}
 
 	if *singleClusterTest {
-		printerMultipeFile(readings, len(rlReply.ReplicaList), experimentStart, rampDown, rampUp, timeout)
+		printerMultipleFile(readings, len(rlReply.ReplicaList), experimentStart, rampDown, rampUp, timeout)
 	} else {
 		printer(readings)
 	}
@@ -177,11 +178,16 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo)
 		}
 
 		// Determine operation type
-		if *percentWrites > opRand.Float64() {
-			if !*blindWrites {
-				args.Command.Op = state.PUT // write operation
-			} else {
-				//args.Command.Op = state.PUT_BLIND
+		randNumber := opRand.Float64()
+		if *percentWrites+*percentRMWs > randNumber {
+			if *percentWrites > randNumber {
+				if !*blindWrites {
+					args.Command.Op = state.PUT // write operation
+				} else {
+					//args.Command.Op = state.PUT_BLIND
+				}
+			} else if *percentRMWs > 0 {
+				args.Command.Op = state.RMW // RMW operation
 			}
 		} else {
 			args.Command.Op = state.GET // read operation
@@ -311,31 +317,34 @@ func printer(readings chan *response) {
 	}
 }
 
-func printerMultipeFile(readings chan *response, numLeader int, experimentStart time.Time, rampDown, rampUp, timeout *int) {
-	lattputFile, err := os.Create("lattput.txt")
+func printerMultipleFile(readings chan *response, replicaID int, experimentStart time.Time, rampDown, rampUp, timeout *int) {
+	fileName := fmt.Sprintf("lattput-%d.txt", replicaID)
+	lattputFile, err := os.Create(fileName)
 	if err != nil {
 		log.Println("Error creating lattput file", err)
 		return
 	}
 
-	latFileRead := make([]*os.File, numLeader)
-	latFileWrite := make([]*os.File, numLeader)
+	fileName = fmt.Sprintf("latFileRead-%d.txt", replicaID)
+	latFileRead, err := os.Create(fileName)
+	if err != nil {
+		log.Println("Error creating latency file", err)
+		return
+	}
+	//latFile.WriteString("# time (ns), latency, commit latency\n")
 
-	for i := 0; i < numLeader; i++ {
-		fileName := fmt.Sprintf("latFileRead-%d.txt", i)
-		latFileRead[i], err = os.Create(fileName)
-		if err != nil {
-			log.Println("Error creating latency file", err)
-			return
-		}
-		//latFile.WriteString("# time (ns), latency, commit latency\n")
+	fileName = fmt.Sprintf("latFileWrite-%d.txt", replicaID)
+	latFileWrite, err := os.Create(fileName)
+	if err != nil {
+		log.Println("Error creating latency file", err)
+		return
+	}
 
-		fileName = fmt.Sprintf("latFileWrite-%d.txt", i)
-		latFileWrite[i], err = os.Create(fileName)
-		if err != nil {
-			log.Println("Error creating latency file", err)
-			return
-		}
+	fileName = fmt.Sprintf("latFileRMW-%d.txt", replicaID)
+	latFileRMW, err := os.Create(fileName)
+	if err != nil {
+		log.Println("Error creating latency file", err)
+		return
 	}
 
 	startTime := time.Now()
@@ -350,13 +359,14 @@ func printerMultipeFile(readings chan *response, numLeader int, experimentStart 
 		currentRuntime := time.Now().Sub(experimentStart)
 		for i := 0; i < count; i++ {
 			resp := <-readings
-
 			// Log all to latency file if they are not within the ramp up or ramp down period.
 			if *rampUp < int(currentRuntime.Seconds()) && int(currentRuntime.Seconds()) < *timeout-*rampDown {
-				if resp.isRead {
-					latFileRead[resp.replicaID].WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
-				} else {
-					latFileWrite[resp.replicaID].WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+				if resp.operation == state.GET {
+					latFileRead.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+				} else if resp.operation == state.PUT {
+					latFileWrite.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
+				} else { // rmw
+					latFileRMW.WriteString(fmt.Sprintf("%d %f %f\n", resp.receivedAt.UnixNano(), resp.rtt, resp.commitLatency))
 				}
 				sum += resp.rtt
 				commitSum += resp.commitLatency
