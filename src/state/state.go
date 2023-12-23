@@ -51,7 +51,7 @@ func InitState() *State {
 
 func Conflict(gamma *Command, delta *Command) bool {
 	if gamma.K == delta.K {
-		if gamma.Op == PUT || delta.Op == PUT {
+		if gamma.Op == PUT || gamma.Op == RMW || delta.Op == PUT || delta.Op == RMW {
 			return true
 		}
 	}
