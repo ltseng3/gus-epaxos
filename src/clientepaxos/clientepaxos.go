@@ -52,7 +52,7 @@ type response struct {
 	receivedAt    time.Time
 	rtt           float64 // The operation latency, in ms
 	commitLatency float64 // The operation's commit latency, in ms
-	isRead        bool
+	operation     state.Operation
 	replicaID     int
 }
 
@@ -62,7 +62,7 @@ type outstandingRequestInfo struct {
 	sync.Mutex
 	sema       *semaphore.Weighted // Controls number of outstanding operations
 	startTimes map[int32]time.Time // The time at which operations were sent out
-	isRead     map[int32]bool
+	operation  map[int32]state.Operation
 }
 
 // An outstandingRequestInfo per client thread
@@ -132,7 +132,7 @@ func main() {
 			sync.Mutex{},
 			semaphore.NewWeighted(*outstandingReqs),
 			make(map[int32]time.Time, *outstandingReqs),
-			make(map[int32]bool, *outstandingReqs)}
+			make(map[int32]state.Operation, *outstandingReqs)}
 
 		//waitTime := startTime.Intn(3)
 		//time.Sleep(time.Duration(waitTime) * 100 * 1e6)
@@ -216,10 +216,8 @@ func simulatedClientWriter(writer *bufio.Writer, orInfo *outstandingRequestInfo)
 		writer.Flush()
 
 		orInfo.Lock()
-		if args.Command.Op == state.GET {
-			orInfo.isRead[id] = true
-		}
-		orInfo.startTimes[id] = before
+		orInfo.operation[args.CommandId] = args.Command.Op
+		orInfo.startTimes[args.CommandId] = before
 		orInfo.Unlock()
 	}
 }
@@ -240,19 +238,18 @@ func simulatedClientReader(reader *bufio.Reader, orInfo *outstandingRequestInfo,
 
 		orInfo.Lock()
 		before := orInfo.startTimes[reply.CommandId]
-		isRead := orInfo.isRead[reply.CommandId]
+		operation := orInfo.operation[reply.CommandId]
 		delete(orInfo.startTimes, reply.CommandId)
 		orInfo.Unlock()
 
 		rtt := (after.Sub(before)).Seconds() * 1000
 		//commitToExec := float64(reply.Timestamp) / 1e6
 		commitLatency := float64(0) //rtt - commitToExec
-
 		readings <- &response{
 			after,
 			rtt,
 			commitLatency,
-			isRead,
+			operation,
 			leader}
 
 	}
