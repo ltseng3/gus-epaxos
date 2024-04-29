@@ -10,6 +10,8 @@ import (
 	"gus-epaxos/src/masterproto"
 	"gus-epaxos/src/mencius"
 	"gus-epaxos/src/paxos"
+	"gus-epaxos/src/multipaxos"
+	"gus-epaxos/src/multipaxoslease"
 	"log"
 	"net"
 	"net/http"
@@ -31,6 +33,8 @@ var doMencius *bool = flag.Bool("m", false, "Use Mencius as the replication prot
 var doGpaxos *bool = flag.Bool("g", false, "Use Generalized Paxos as the replication protocol. Defaults to false.")
 var doEpaxos *bool = flag.Bool("e", false, "Use EPaxos as the replication protocol. Defaults to false.")
 var doFastpaxos *bool = flag.Bool("f", false, "Use Fast Paxos as the replication protocol. Defaults to false.")
+var doMultipaxos *bool = flag.Bool("mp", false, "Use Multi Paxos as the replication protocol. Defaults to false.")
+var doMultipaxosLease *bool = flag.Bool("mpl", false, "Use Multi Paxos with LEASE as the replication protocol. Defaults to false.")
 var procs *int = flag.Int("p", 2, "GOMAXPROCS. Defaults to 2")
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 var thrifty = flag.Bool("thrifty", false, "Use only as many messages as strictly required for inter-replica communication.")
@@ -68,6 +72,14 @@ func main() {
 		log.Println("Starting Fast Paxos replica...")
 		rep := fastpaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable)
 		rpc.Register(rep)
+	} else if *doMultipaxos {
+		log.Println("Starting Multi-Paxos replica...")
+		rep := multipaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable)
+		rpc.Register(rep)	
+	} else if *doMultipaxosLease {
+		log.Println("Starting Multi-Paxos with LEASE replica...")
+		rep := multipaxoslease.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *durable)
+		rpc.Register(rep)		
 	} else if *doEpaxos {
 		log.Println("Starting Egalitarian Paxos replica...")
 		rep := epaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *beacon, *durable)
