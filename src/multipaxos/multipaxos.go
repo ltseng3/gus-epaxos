@@ -18,7 +18,7 @@ const TRUE = uint8(1)
 const FALSE = uint8(0)
 
 const MAX_BATCH = 1
-const CLOCK = 1000 * 10
+const CLOCK = 1000 * 100
 
 type Replica struct {
 	*genericsmr.Replica // extends a generic Paxos replica
