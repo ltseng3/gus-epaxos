@@ -728,12 +728,14 @@ func (r *Replica) executeCommands() {
 				r.readsPending[i] = nil
 				if proposals != nil {
 					for _, prop := range proposals {
-						propreply := &genericsmrproto.ProposeReplyTS{
-							TRUE,
-							prop.CommandId,
-							val,
-							prop.Timestamp}
-						r.ReplyProposeTS(propreply, prop.Reply)
+						if prop != nil {//not sure why this would happen
+							propreply := &genericsmrproto.ProposeReplyTS{
+								TRUE,
+								prop.CommandId,
+								val,
+								prop.Timestamp}
+							r.ReplyProposeTS(propreply, prop.Reply)
+						}
 					}
 				}
 
