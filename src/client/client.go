@@ -193,7 +193,7 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 			writer.Flush()
 		}
 
-		log.Println("sent: ", args.CommandId)
+		//log.Println("sent: ", args.CommandId)
 
 		orInfo.Lock()
 		orInfo.operation[args.CommandId] = args.Command.Op
