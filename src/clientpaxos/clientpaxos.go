@@ -183,7 +183,7 @@ func simulatedClientWriter(writer *bufio.Writer, lWriter *bufio.Writer, orInfo *
 		}
 
 		before := time.Now()
-		if serverID != 0 { // send RMWs to leader
+		if serverID != 0 { 
 			lWriter.WriteByte(genericsmrproto.PROPOSE)
 			args.Marshal(lWriter)
 			lWriter.Flush()
